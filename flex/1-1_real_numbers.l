@@ -4,9 +4,9 @@
 
 %%
 
-[-+]?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?   { printf("Número real reconhecido: %s\n", yytext); }
-[ \t\n]     ;  /* Ignorar espaços e quebras de linha */
-.           { printf("Caractere não reconhecido: %s\n", yytext); }
+[-+]?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?   { printf("Numero real reconhecido: %s\n", yytext); }
+[ \t\n]     ;  /* ignorar espaços e quebras de linha */
+.           { printf("Caractere nao reconhecido: %s\n", yytext); }
 
 %%
 

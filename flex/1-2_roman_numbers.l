@@ -4,9 +4,9 @@
 
 %%
 
-M{0,1}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})  { printf("Número romano reconhecido: %s\n", yytext); }
-[ \t\n]     ;  /* Ignorar espaços e quebras de linha */
-.           { printf("Caractere não reconhecido: %s\n", yytext); }
+M{0,1}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})  { printf("Numero romano reconhecido: %s\n", yytext); }
+[ \t\n]     ;  /* ignorar espaços e quebras de linha */
+.           { printf("caractere nao reconhecido: %s\n", yytext); }
 
 %%
 

@@ -1,0 +1,35 @@
+# This is a sample program to test the lexical analyzer #
+
+Begin
+    Integer $count, $total;
+    Real $average;
+    String $name;
+
+    $count = 10;
+    $total = 0;
+    $name = "Sample Program";
+
+    For $i = 1 To $count Do
+        If $i < 5 Then
+            $total = $total + SQR($i);
+        Elseif $i <= 8 Then
+            $total = $total + SQRT($i);
+        Else
+            $total = $total + $i;
+        Endif
+    End;
+
+    $average = $total / $count;
+
+    _printResults($name, $count, $total, $average);
+
+    While $count > 0 Repeat
+        $count = $count - 1;
+        If SIN($count) <> 0 Then
+            _processTrigValue($count);
+        Endif
+    Until $count = 0;
+
+    $values = 1, 2, 3, 4;
+    _processValues($values); # Function call #
+End
