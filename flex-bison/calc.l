@@ -1,13 +1,26 @@
 %{
-  # include "bison.h"
+  #include <string.h>
+  #include "calc.tab.h"
+
+  extern YYSTYPE yylval;
 %}
 
 %%
 
-[0-9]*\.?[0-9]+ { sscanf (yytext, "%lf", &yylval); return NUM;}
+[0-9]*\.?[0-9]+       { sscanf(yytext, "%lf", &yylval.val); return NUM; }
 
-[ \t]*          {;}
+[a-zA-Z][a-zA-Z0-9]*  { yylval.id = strdup(yytext); return ID; }
 
-.|\n            {return yytext[0];}
+"="                   { return ASSIGN; }
+
+[ \t]*                { /* ignore whitespace */ }
+
+\n                    { return '\n'; }
+
+.                     { return yytext[0]; }
 
 %%
+
+int yywrap(void) {
+  return 1;
+}

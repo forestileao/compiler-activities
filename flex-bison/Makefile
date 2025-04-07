@@ -1,17 +1,8 @@
-rpcalc: flex.o bison.o
-	gcc flex.o bison.o -lfl -o rpcalc -lm
+build:
+	bison -d calc.y -o calc.tab.c
+	flex -o calc.lex.c calc.l
+	gcc -o calc calc.tab.c calc.lex.c -lm
+	rm *.c *.h
 
-flex.o: flex.c bison.c
-	gcc -c flex.c
-
-bison.o: bison.c
-	gcc -c bison.c
-
-flex.c: calc.l
-	flex -o flex.c calc.l
-
-bison.c: calc.y
-	bison -d -o bison.c calc.y
-
-clean:
-	rm *.o *.c *.h # nao sei se funciona no DOS
+run: build
+	./calc
