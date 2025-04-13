@@ -20,10 +20,8 @@
   double get_var_value(char name);
   void set_var_value(char name, double value);
   
-  /* Executar atribuições */
   void execute_assignment(char var, double value);
   
-  /* Executar if-then-else */
   void execute_if_then(int condition, char var_then, double val_then);
   void execute_if_then_else(int condition, char var_then, double val_then, 
                            char var_else, double val_else);
@@ -45,7 +43,6 @@
 %type <val> exp
 %type <boolval> bool_expr
 
-/* Prioridades e associatividade */
 %left OR
 %left AND
 %right NOT
@@ -58,7 +55,6 @@
 %%
 
 input:
-      /* vazio */
     | input line
     ;
 
@@ -110,20 +106,17 @@ bool_expr:
 
 %%
 
-/* Executa uma atribuição direta */
 void execute_assignment(char var, double value) {
     set_var_value(var, value);
     printf("VAR %c = %lf\n", var, value);
 }
 
-/* Executa if-then */
 void execute_if_then(int condition, char var_then, double val_then) {
     if (condition) {
         execute_assignment(var_then, val_then);
     }
 }
 
-/* Executa if-then-else */
 void execute_if_then_else(int condition, char var_then, double val_then, 
                          char var_else, double val_else) {
     if (condition) {
@@ -162,7 +155,6 @@ void yyerror(const char *s) {
 }
 
 int main(void) {
-    // Initialize the symbol table
     for (int i = 0; i < MAX_VARS; i++) {
         symbol_table[i].name = 'a' + i;
         symbol_table[i].value = 0;
