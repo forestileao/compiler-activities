@@ -16,8 +16,8 @@ void yyerror(const char* s);
 int line_count = 1;
 int char_count = 0;
 int execute_flag = 1;
-int if_stack[100];     // Stack for nested if statements
-int if_stack_ptr = 0;  // Stack pointer
+int if_stack[100];
+int if_stack_ptr = 0;
 int saved_execute_state = 1;
 int condition_result = 0;
 int condition_value = 0;
@@ -180,7 +180,7 @@ atribs:
 
 atrib:
     ID '=' exp_aritmetica {
-        if (execute_if_blocks) {  // Only execute if flag is true
+        if (execute_if_blocks) {
             symbol_t *sym = lookup_symbol(&symbol_table, $1);
             if (!sym) {
                 yyerror("Variable not declared");
@@ -213,50 +213,50 @@ atrib:
 
 comando_if:
     IF '(' expr_logica ')' THEN '{' comandos '}' %prec LOWER_THAN_ELSE {
-        // Evaluate the condition
+
         value_t val = evaluate_logical_expr($3);
 
-        // Save current execution state on stack
+
         if_stack[if_stack_ptr++] = execute_flag;
 
-        // Set new execution state based on condition
+
         if (execute_flag) {
-            // Only modify execution if we're already executing
+
             execute_flag = val.bool_val;
         }
 
-        // We've finished the THEN block
-        // Restore execution state
+
+
         execute_flag = if_stack[--if_stack_ptr];
         free_logical_expr($3);
     }
     | IF '(' expr_logica ')' THEN '{' comandos '}' ELSE '{' comandos '}' {
-        // Evaluate the condition
+
         value_t val = evaluate_logical_expr($3);
 
-        // Save current execution state and condition result on stack
+
         if_stack[if_stack_ptr++] = execute_flag;
         if_stack[if_stack_ptr++] = val.bool_val;
 
-        // Set new execution state for THEN block
+
         if (execute_flag) {
-            // Only modify execution if we're already executing
+
             execute_flag = val.bool_val;
         }
 
-        // We've finished the THEN block, now handle ELSE
-        int condition = if_stack[if_stack_ptr-1]; // Get condition result
-        int prev_exec = if_stack[if_stack_ptr-2]; // Get original execution state
 
-        // Set execution state for ELSE block
+        int condition = if_stack[if_stack_ptr-1];
+        int prev_exec = if_stack[if_stack_ptr-2];
+
+
         if (prev_exec) {
-            // Only modify execution if the outer context was executing
+
             execute_flag = !condition;
         }
 
-        // We've finished the ELSE block
-        // Restore original execution state
-        if_stack_ptr -= 2;  // Pop the condition and original state
+
+
+        if_stack_ptr -= 2;
         execute_flag = if_stack[if_stack_ptr];
         free_logical_expr($3);
     }
@@ -488,7 +488,7 @@ int is_compatible_type(data_type_t var_type, value_t value) {
         case TYPE_FLOAT:
             return (value.type == VALUE_INT || value.type == VALUE_FLOAT || value.type == VALUE_CHAR);
         case TYPE_CHAR:
-            return (value.type == VALUE_CHAR || value.type == VALUE_INT); // Allow both char and int for char vars
+            return (value.type == VALUE_CHAR || value.type == VALUE_INT);
         case TYPE_BOOLEAN:
             return (value.type == VALUE_BOOL);
         default:
@@ -499,8 +499,8 @@ value_t evaluate_expr(expr_t *expr) {
     value_t result, left_val, right_val;
     symbol_t *sym;
 
-    result.type = VALUE_INT; // Default
-    result.int_val = 0;      // Default value
+    result.type = VALUE_INT;
+    result.int_val = 0;
 
     if (!expr) return result;
 
@@ -513,7 +513,7 @@ value_t evaluate_expr(expr_t *expr) {
             result.type = VALUE_FLOAT;
             result.float_val = expr->value.float_val;
             break;
-        case EXPR_CHAR_LIT:  // Add this case
+        case EXPR_CHAR_LIT:
             result.type = VALUE_CHAR;
             result.char_val = expr->value.char_val;
             break;
@@ -595,7 +595,7 @@ value_t evaluate_expr(expr_t *expr) {
             left_val = evaluate_expr(expr->left);
             right_val = evaluate_expr(expr->right);
 
-            // Check for division by zero
+
             if ((right_val.type == VALUE_INT && right_val.int_val == 0) ||
                 (right_val.type == VALUE_FLOAT && fabs(right_val.float_val) < 0.0001) ||
                 (right_val.type == VALUE_CHAR && (int)right_val.char_val == 0)) {
@@ -628,7 +628,7 @@ value_t evaluate_logical_expr(logical_expr_t *expr) {
     symbol_t *sym;
 
     result.type = VALUE_BOOL;
-    result.bool_val = 0; // Default value
+    result.bool_val = 0;
 
     if (!expr) return result;
 
@@ -766,13 +766,13 @@ int main(int argc, char **argv) {
 
     yyin = input_file;
 
-    // Initialize symbol table
+
     init_symbol_table(&symbol_table);
 
-    // Parse the input
+
     yyparse();
 
-    // Clean up
+
     free_symbol_table(&symbol_table);
     fclose(input_file);
 

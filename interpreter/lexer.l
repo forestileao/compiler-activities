@@ -62,7 +62,7 @@ COMMENT  "//".*\n
 \"[^\"]*\"    {
                 count();
                 yylval.str = strdup(yytext+1);
-                yylval.str[strlen(yylval.str)-1] = '\0'; // Remove closing quote
+                yylval.str[strlen(yylval.str)-1] = '\0';
                 return STRING_LITERAL;
               }
 

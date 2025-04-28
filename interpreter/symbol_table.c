@@ -1,6 +1,6 @@
 #include "symbol_table.h"
 
-// Initialize symbol table
+
 void init_symbol_table(symbol_table_t *table) {
     if (table) {
         table->count = 0;
@@ -10,7 +10,7 @@ void init_symbol_table(symbol_table_t *table) {
     }
 }
 
-// Free symbol table
+
 void free_symbol_table(symbol_table_t *table) {
     if (table) {
         for (int i = 0; i < table->count; i++) {
@@ -23,30 +23,30 @@ void free_symbol_table(symbol_table_t *table) {
     }
 }
 
-// Add symbol to table
+
 int add_symbol(symbol_table_t *table, const char *name, data_type_t type) {
     if (!table || !name) {
         return 0;
     }
 
-    // Check if symbol already exists
+
     for (int i = 0; i < table->count; i++) {
         if (table->symbols[i].name && strcmp(table->symbols[i].name, name) == 0) {
-            return 0; // Symbol already exists
+            return 0;
         }
     }
 
-    // Check if table is full
+
     if (table->count >= MAX_SYMBOLS) {
         fprintf(stderr, "Error: Symbol table is full (max %d symbols)\n", MAX_SYMBOLS);
         return 0;
     }
 
-    // Add new symbol
+
     table->symbols[table->count].name = strdup(name);
     table->symbols[table->count].type = type;
 
-    // Initialize value based on type
+
     switch (type) {
         case TYPE_INT:
             table->symbols[table->count].value.type = VALUE_INT;
@@ -70,7 +70,7 @@ int add_symbol(symbol_table_t *table, const char *name, data_type_t type) {
     return 1;
 }
 
-// Lookup symbol by name
+
 symbol_t *lookup_symbol(symbol_table_t *table, const char *name) {
     if (!table || !name) {
         return NULL;
@@ -85,7 +85,7 @@ symbol_t *lookup_symbol(symbol_table_t *table, const char *name) {
     return NULL;
 }
 
-// Create a new expression node
+
 expr_t *create_expr() {
     expr_t *expr = (expr_t *)malloc(sizeof(expr_t));
     if (expr) {
@@ -98,7 +98,7 @@ expr_t *create_expr() {
     return expr;
 }
 
-// Free an expression node and its children
+
 void free_expr(expr_t *expr) {
     if (expr) {
         if (expr->left) {
@@ -114,7 +114,7 @@ void free_expr(expr_t *expr) {
     }
 }
 
-// Create a new logical expression node
+
 logical_expr_t *create_logical_expr() {
     logical_expr_t *expr = (logical_expr_t *)malloc(sizeof(logical_expr_t));
     if (expr) {
@@ -129,7 +129,7 @@ logical_expr_t *create_logical_expr() {
     return expr;
 }
 
-// Free a logical expression node and its children
+
 void free_logical_expr(logical_expr_t *expr) {
     if (expr) {
         if (expr->left_expr) {

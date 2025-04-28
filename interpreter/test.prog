@@ -1,47 +1,43 @@
-// Example program for our interpreter
 
-// Variable declarations
+
+
 int x;
 float y;
 boolean condition;
 char c;
 
-// Assignments
+
 x = 10;
 y = 20.5;
 condition = (x < y);
 c = 'A';
 
-// Output values
+
 write(x);
 write(y);
 write(condition);
 write(c);
 
-// Conditional execution
+
 if (x < y) then {
     write("x is less than y");
     x = x + 5;
     write(x);
 }
 
-// Another conditional with else
+
 if (x > y) then {
     write("x is greater than y");
-} else {
-    write("x is still less than or equal to y");
-    y = y - 10.5;
-    write(y);
 }
 
-// Complex expressions
+
 x = x * 2 + 3;
 write(x);
 
 y = y / 2.0;
 write(y);
 
-// Boolean expressions
+
 condition = (x > 20) AND (y < 15);
 write(condition);
 
