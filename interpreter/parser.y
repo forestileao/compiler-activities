@@ -15,6 +15,13 @@ void yyerror(const char* s);
 
 int line_count = 1;
 int char_count = 0;
+int execute_flag = 1;
+int if_stack[100];     // Stack for nested if statements
+int if_stack_ptr = 0;  // Stack pointer
+int saved_execute_state = 1;
+int condition_result = 0;
+int condition_value = 0;
+int execute_if_blocks = 1;
 symbol_table_t symbol_table;
 
 /* Function declarations for semantic analysis */
@@ -56,6 +63,8 @@ value_t evaluate_logical_expr(logical_expr_t *expr);
 %left '*' '/'
 %left AND OR
 %right NOT
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %%
 
@@ -123,7 +132,7 @@ comando_read:
 
 comando_write:
     WRITE '(' ID ')' {
-        if (execute_flag) {  // Only execute if flag is true
+        if (execute_if_blocks) {
             symbol_t *sym = lookup_symbol(&symbol_table, $3);
             if (!sym) {
                 yyerror("Variable not declared");
@@ -132,16 +141,36 @@ comando_write:
                     case TYPE_INT:
                         printf("%d\n", sym->value.int_val);
                         break;
-                    // ... other cases
+                    case TYPE_FLOAT:
+                        printf("%f\n", sym->value.float_val);
+                        break;
+                    case TYPE_BOOLEAN:
+                        printf("%s\n", sym->value.bool_val ? "true" : "false");
+                        break;
+                    case TYPE_CHAR:
+                        printf("%c\n", sym->value.char_val);
+                        break;
                 }
             }
         }
         free($3);
     }
-    | WRITE '(' INT_LITERAL ')' { printf("%d\n", $3); }
-    | WRITE '(' FLOAT_LITERAL ')' { printf("%f\n", $3); }
-    | WRITE '(' STRING_LITERAL ')' { printf("%s\n", $3); free($3); }
-    | WRITE '(' CHAR_LITERAL ')' { printf("%c\n", $3); }
+    | WRITE '(' INT_LITERAL ')' {
+        if (execute_if_blocks) printf("%d\n", $3);
+    }
+    | WRITE '(' FLOAT_LITERAL ')' {
+        if (execute_if_blocks) printf("%f\n", $3);
+    }
+    | WRITE '(' STRING_LITERAL ')' {
+        if (execute_if_blocks) printf("%s\n", $3);
+        free($3);
+    }
+    | WRITE '(' CHAR_LITERAL ')' {
+        if (execute_if_blocks) printf("%c\n", $3);
+    }
+    | WRITE '(' BOOL_LITERAL ')' {
+        if (execute_if_blocks) printf("%s\n", $3 ? "true" : "false");
+    }
     ;
 
 atribs:
@@ -151,7 +180,7 @@ atribs:
 
 atrib:
     ID '=' exp_aritmetica {
-        if (execute_flag) {  // Only execute if flag is true
+        if (execute_if_blocks) {  // Only execute if flag is true
             symbol_t *sym = lookup_symbol(&symbol_table, $1);
             if (!sym) {
                 yyerror("Variable not declared");
@@ -166,14 +195,16 @@ atrib:
         free_expr($3);
     }
     | ID '=' expr_logica {
-        symbol_t *sym = lookup_symbol(&symbol_table, $1);
-        if (!sym) {
-            yyerror("Variable not declared");
-        } else if (sym->type != TYPE_BOOLEAN) {
-            yyerror("Type mismatch: logical expression assigned to non-boolean variable");
-        } else {
-            value_t val = evaluate_logical_expr($3);
-            sym->value.bool_val = val.bool_val;
+        if (execute_if_blocks) {
+            symbol_t *sym = lookup_symbol(&symbol_table, $1);
+            if (!sym) {
+                yyerror("Variable not declared");
+            } else if (sym->type != TYPE_BOOLEAN) {
+                yyerror("Type mismatch: logical expression assigned to non-boolean variable");
+            } else {
+                value_t val = evaluate_logical_expr($3);
+                sym->value.bool_val = val.bool_val;
+            }
         }
         free($1);
         free_logical_expr($3);
@@ -181,18 +212,52 @@ atrib:
     ;
 
 comando_if:
-    IF '(' expr_logica ')' THEN '{' comandos '}' {
+    IF '(' expr_logica ')' THEN '{' comandos '}' %prec LOWER_THAN_ELSE {
+        // Evaluate the condition
         value_t val = evaluate_logical_expr($3);
-        if (!val.bool_val) {
-            // Skip the then block
+
+        // Save current execution state on stack
+        if_stack[if_stack_ptr++] = execute_flag;
+
+        // Set new execution state based on condition
+        if (execute_flag) {
+            // Only modify execution if we're already executing
+            execute_flag = val.bool_val;
         }
+
+        // We've finished the THEN block
+        // Restore execution state
+        execute_flag = if_stack[--if_stack_ptr];
         free_logical_expr($3);
     }
     | IF '(' expr_logica ')' THEN '{' comandos '}' ELSE '{' comandos '}' {
+        // Evaluate the condition
         value_t val = evaluate_logical_expr($3);
-        if (!val.bool_val) {
-            // Execute the else block
+
+        // Save current execution state and condition result on stack
+        if_stack[if_stack_ptr++] = execute_flag;
+        if_stack[if_stack_ptr++] = val.bool_val;
+
+        // Set new execution state for THEN block
+        if (execute_flag) {
+            // Only modify execution if we're already executing
+            execute_flag = val.bool_val;
         }
+
+        // We've finished the THEN block, now handle ELSE
+        int condition = if_stack[if_stack_ptr-1]; // Get condition result
+        int prev_exec = if_stack[if_stack_ptr-2]; // Get original execution state
+
+        // Set execution state for ELSE block
+        if (prev_exec) {
+            // Only modify execution if the outer context was executing
+            execute_flag = !condition;
+        }
+
+        // We've finished the ELSE block
+        // Restore original execution state
+        if_stack_ptr -= 2;  // Pop the condition and original state
+        execute_flag = if_stack[if_stack_ptr];
         free_logical_expr($3);
     }
     ;
@@ -244,6 +309,11 @@ expr_logica:
         $$ = create_logical_expr();
         $$->type = LOGICAL_NOT;
         $$->left_logical = $2;
+    }
+    | NOT '(' expr_logica ')' {  /* Add this rule to handle NOT(expr) */
+        $$ = create_logical_expr();
+        $$->type = LOGICAL_NOT;
+        $$->left_logical = $3;
     }
     | ID {
         symbol_t *sym = lookup_symbol(&symbol_table, $1);
@@ -330,9 +400,9 @@ factor:
         $$->type = EXPR_FLOAT_LIT;
         $$->value.float_val = $1;
     }
-    | CHAR_LITERAL {  /* Add this case */
+    | CHAR_LITERAL {
         $$ = create_expr();
-        $$->type = EXPR_CHAR_LIT;  /* You might need to add this to your expr_type_t enum */
+        $$->type = EXPR_CHAR_LIT;
         $$->value.type = VALUE_CHAR;
         $$->value.char_val = $1;
     }
