@@ -123,23 +123,17 @@ comando_read:
 
 comando_write:
     WRITE '(' ID ')' {
-        symbol_t *sym = lookup_symbol(&symbol_table, $3);
-        if (!sym) {
-            yyerror("Variable not declared");
-        } else {
-            switch(sym->type) {
-                case TYPE_INT:
-                    printf("%d\n", sym->value.int_val);
-                    break;
-                case TYPE_FLOAT:
-                    printf("%f\n", sym->value.float_val);
-                    break;
-                case TYPE_BOOLEAN:
-                    printf("%s\n", sym->value.bool_val ? "true" : "false");
-                    break;
-                case TYPE_CHAR:
-                    printf("%c\n", sym->value.char_val);
-                    break;
+        if (execute_flag) {  // Only execute if flag is true
+            symbol_t *sym = lookup_symbol(&symbol_table, $3);
+            if (!sym) {
+                yyerror("Variable not declared");
+            } else {
+                switch(sym->type) {
+                    case TYPE_INT:
+                        printf("%d\n", sym->value.int_val);
+                        break;
+                    // ... other cases
+                }
             }
         }
         free($3);
@@ -157,14 +151,16 @@ atribs:
 
 atrib:
     ID '=' exp_aritmetica {
-        symbol_t *sym = lookup_symbol(&symbol_table, $1);
-        if (!sym) {
-            yyerror("Variable not declared");
-        } else if (sym->type == TYPE_BOOLEAN) {
-            yyerror("Type mismatch: arithmetic expression assigned to boolean variable");
-        } else {
-            value_t val = evaluate_expr($3);
-            check_and_set_value($1, val);
+        if (execute_flag) {  // Only execute if flag is true
+            symbol_t *sym = lookup_symbol(&symbol_table, $1);
+            if (!sym) {
+                yyerror("Variable not declared");
+            } else if (sym->type == TYPE_BOOLEAN) {
+                yyerror("Type mismatch: arithmetic expression assigned to boolean variable");
+            } else {
+                value_t val = evaluate_expr($3);
+                check_and_set_value($1, val);
+            }
         }
         free($1);
         free_expr($3);
@@ -185,14 +181,14 @@ atrib:
     ;
 
 comando_if:
-    IF '(' expr_logica ')' THEN '{' atribs '}' {
+    IF '(' expr_logica ')' THEN '{' comandos '}' {
         value_t val = evaluate_logical_expr($3);
         if (!val.bool_val) {
             // Skip the then block
         }
         free_logical_expr($3);
     }
-    | IF '(' expr_logica ')' THEN '{' atribs '}' ELSE '{' atribs '}' {
+    | IF '(' expr_logica ')' THEN '{' comandos '}' ELSE '{' comandos '}' {
         value_t val = evaluate_logical_expr($3);
         if (!val.bool_val) {
             // Execute the else block
@@ -232,22 +228,22 @@ expr_logica:
         $$->left_expr = $1;
         $$->right_expr = $3;
     }
-    | '(' expr_logica OR expr_logica ')' {
+    | expr_logica OR expr_logica {
         $$ = create_logical_expr();
         $$->type = LOGICAL_OR;
-        $$->left_logical = $2;
-        $$->right_logical = $4;
+        $$->left_logical = $1;
+        $$->right_logical = $3;
     }
-    | '(' expr_logica AND expr_logica ')' {
+    | expr_logica AND expr_logica {
         $$ = create_logical_expr();
         $$->type = LOGICAL_AND;
-        $$->left_logical = $2;
-        $$->right_logical = $4;
+        $$->left_logical = $1;
+        $$->right_logical = $3;
     }
-    | '(' NOT expr_logica ')' {
+    | NOT expr_logica {
         $$ = create_logical_expr();
         $$->type = LOGICAL_NOT;
-        $$->left_logical = $3;
+        $$->left_logical = $2;
     }
     | ID {
         symbol_t *sym = lookup_symbol(&symbol_table, $1);
