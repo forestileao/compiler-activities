@@ -26,8 +26,8 @@ if (x < y) then {
 }
 
 
-if (x > y) then {
-    write("x is greater than y");
+if (y > x) then {
+    write("y is greater than x");
 }
 
 
