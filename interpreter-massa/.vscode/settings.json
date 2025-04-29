@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.proto": "go",
+    "assert.h": "c"
+  }
+}

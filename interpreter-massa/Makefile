@@ -1,19 +1,10 @@
-CC = gcc
-FLEX = flex
-BISON = bison
-CFLAGS = -Wall -g
+all:
+	flex -o lexer.c lexer.l
+	bison -d -o parser.c parser.y
+	gcc parser.c lexer.c astgen.c astgen.c -o toylang-noop
+	./toylang-noop < example.toy
 
-all: compilador
-
-compilador: lex.yy.c y.tab.c
-	$(CC) $(CFLAGS) -o compilador lex.yy.c y.tab.c -lm
-
-lex.yy.c: lexer.l
-	$(FLEX) lexer.l
-
-y.tab.c: parser.y
-	$(BISON) -d -y parser.y
 
 clean:
-	rm -f compilador lex.yy.c y.tab.c y.tab.h *~
-
+	rm -f lexer.c parser.h parser.c parser.tab.c parser.tab.h toylang-noop
+	rm -f *.o
