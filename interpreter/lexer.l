@@ -57,7 +57,7 @@ read						return READ;
     }
 %%
 
-yywrap ()
+int yywrap ()
 {
   return (1);
 }
