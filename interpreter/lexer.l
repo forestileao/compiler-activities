@@ -1,5 +1,6 @@
 %{
 #include <stdio.h>
+#include <stdlib.h>
 #include "inter.tab.h"
 int line_number = 1;
 %}
@@ -29,9 +30,17 @@ read						return READ;
 
   /* Keywords */
 \"([^"]*?)\"					    return STRING;
-[a-zA-Z]([a-zA-Z0-9\-])*	return ID;
-[0-9]+						        return NUMBER;
-[0-9]+\.[0-9]+			      return FLOAT_NUMBER;
+[a-zA-Z]([a-zA-Z0-9\-])*	{ yylval.sval = strdup(yytext); return ID;}
+
+[0-9]+  {
+  yylval.ival = atoi(yytext);
+  return NUMBER;
+}
+
+[0-9]+\.[0-9]+  {
+  yylval.fval = atof(yytext);
+  return FLOAT_NUMBER;
+}
 
   /* Operators */
 

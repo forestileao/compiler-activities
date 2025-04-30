@@ -1,15 +1,29 @@
 %{
 #include<stdio.h>
+#include "symbol_table.h"
+
+
+extern int line_number;
+
+SymbolTable *symbol_table;
 
 int yylex(void);
 int yyerror(char *s);
 %}
 
+
+%union {
+    char *sval;  /* Para strings e identificadores */
+    int ival;    /* Para números inteiros */
+    float fval;  /* Para números de ponto flutuante */
+}
+
+%token <sval> ID
+%token <ival> NUMBER
+%token <fval> FLOAT_NUMBER
 %token INT FLOAT CHAR TRUE FALSE IF THEN ELSE END
-%token WRITE READ ID NUMBER FLOAT_NUMBER
-%token EQUAL ASSIGNMENT LT GT PLUS MINUS TIMES DIVIDE
-%token LPAREN RPAREN SEMICOLON LB RB
-%token STRING AND OR NOT
+%token WRITE READ EQUAL ASSIGNMENT LT GT PLUS MINUS TIMES DIVIDE
+%token LPAREN RPAREN SEMICOLON LB RB STRING AND OR NOT
 
 %%
 
@@ -32,10 +46,19 @@ cond_decl	: IF exp THEN block END
 			;
 
 
-var_decl	: INT ID SEMICOLON
-			| FLOAT ID SEMICOLON
-			| CHAR ID SEMICOLON
-			;
+var_decl : INT ID SEMICOLON
+         {
+           insert_symbol(symbol_table, $2, TYPE_INT, line_number);
+         }
+       | FLOAT ID SEMICOLON
+         {
+           insert_symbol(symbol_table, $2, TYPE_FLOAT, line_number);
+         }
+       | CHAR ID SEMICOLON
+         {
+           insert_symbol(symbol_table, $2, TYPE_CHAR, line_number);
+         }
+       ;
 
 atrib_decl	: ID ASSIGNMENT exp SEMICOLON
 			;
@@ -80,7 +103,6 @@ factor	: LPAREN exp RPAREN
 
 %%
 
-extern int line_number;
 extern char *yytext;
 
 int yyerror(s)
@@ -90,7 +112,15 @@ char *s;
 	return 0;
 }
 
-int main (void)
-{
-	return yyparse();
+
+int main(void) {
+    symbol_table = create_symbol_table();
+
+    int result = yyparse();
+
+    print_symbol_table(symbol_table);
+
+    free_symbol_table(symbol_table);
+
+    return result;
 }
