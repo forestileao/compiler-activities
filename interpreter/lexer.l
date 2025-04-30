@@ -8,6 +8,7 @@ int line_number = 1;
 
   /* Data Types */
 int							return INT;
+float           return FLOAT;
 char						return CHAR;
 true						return TRUE;
 false						return FALSE;
@@ -26,7 +27,7 @@ read						return READ;
 
 [a-zA-Z]([a-zA-Z0-9\-])*	return ID;
 [0-9]+						        return NUMBER;
-[0-9]+\.[0-9]+			      return FLOAT;
+[0-9]+\.[0-9]+			      return FLOAT_NUMBER;
 
   /* Operators */
 
