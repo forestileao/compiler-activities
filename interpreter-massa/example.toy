@@ -1,7 +1,0 @@
-begin # example of the simple toy language
-    x = 23;
-    while x > 0 do begin
-        x = x - 1;
-        print(x*x);
-    end;
-end;
