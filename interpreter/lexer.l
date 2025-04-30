@@ -23,8 +23,12 @@ end							return END;
 write						return WRITE;
 read						return READ;
 
-  /* Keywords */
+"or"            return OR;
+"and"           return AND;
+"not"           return NOT;
 
+  /* Keywords */
+\"([^"]*?)\"					    return STRING;
 [a-zA-Z]([a-zA-Z0-9\-])*	return ID;
 [0-9]+						        return NUMBER;
 [0-9]+\.[0-9]+			      return FLOAT_NUMBER;
