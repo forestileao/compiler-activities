@@ -1,10 +1,12 @@
 %{
-#include<stdio.h>
+#include <stdio.h>
 #include "symbol_table.h"
+#include "command.h"
 
 extern int line_number;
 
 SymbolTable *symbol_table;
+CommandList *cmd_list;
 
 int yylex(void);
 int yyerror(char *s);
@@ -30,8 +32,8 @@ int yyerror(char *s);
 program	: block
         ;
 
-block	: block declaration
-        | declaration
+block	: declaration
+        | block declaration
         ;
 
 declaration	: cond_decl
@@ -41,53 +43,72 @@ declaration	: cond_decl
             | var_decl
             ;
 
-cond_decl	: IF exp THEN block END
+/* Define a non-terminal for the IF part to avoid conflicts */
+if_part     : IF exp THEN
             {
-                /* Handle simple if statement */
-                if ($2 == 0) {
-                    fprintf(stderr, "Warning: Condition always evaluates to false at line %d\n", line_number);
-                }
+                /* Before entering the IF block, push the condition to our command stack */
+                set_current_line(cmd_list, line_number);
+                push_if_command(cmd_list, $2, line_number);
             }
-            | IF exp THEN block ELSE block END
+            ;
+
+cond_decl   : if_part block END
             {
-                /* Handle if-else statement */
-                if ($2 == 0) {
-                    fprintf(stderr, "Warning: IF condition always evaluates to false at line %d\n", line_number);
-                } else if ($2 == 1) {
-                    fprintf(stderr, "Warning: ELSE branch will never be executed at line %d\n", line_number);
-                }
+                /* When reaching END, process it to finalize this IF statement */
+                set_current_line(cmd_list, line_number);
+                process_end_command(cmd_list, line_number);
+            }
+            | if_part block ELSE
+            {
+                /* When reaching ELSE, toggle the skip mode based on condition */
+                set_current_line(cmd_list, line_number);
+                process_else_command(cmd_list, line_number);
+            }
+            block END
+            {
+                /* Process the END for the IF-ELSE statement */
+                set_current_line(cmd_list, line_number);
+                process_end_command(cmd_list, line_number);
             }
             ;
 
 var_decl : INT ID SEMICOLON
          {
            insert_symbol(symbol_table, $2, TYPE_INT, line_number);
+           set_current_line(cmd_list, line_number);
          }
        | FLOAT ID SEMICOLON
          {
            insert_symbol(symbol_table, $2, TYPE_FLOAT, line_number);
+           set_current_line(cmd_list, line_number);
          }
        | CHAR ID SEMICOLON
          {
            insert_symbol(symbol_table, $2, TYPE_CHAR, line_number);
+           set_current_line(cmd_list, line_number);
          }
        ;
 
 atrib_decl	: ID ASSIGNMENT exp SEMICOLON
             {
-                Symbol *sym = lookup_symbol(symbol_table, $1);
-                if (sym == NULL) {
-                    fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $1, line_number);
-                } else {
-                    set_initialized(symbol_table, $1);
+                set_current_line(cmd_list, line_number);
 
-                    /* Type checking could be added here */
-                    DataType id_type = get_symbol_type(symbol_table, $1);
-                    if (id_type == TYPE_FLOAT && $3 == (int)$3) {
-                        /* Implicit int to float conversion is fine */
-                    } else if (id_type == TYPE_INT && $3 != (int)$3) {
-                        fprintf(stderr, "Warning: Possible loss of precision assigning float to int for '%s' at line %d\n",
-                                $1, line_number);
+                /* Only process this assignment if not in skip mode */
+                if (!should_skip_execution(cmd_list)) {
+                    Symbol *sym = lookup_symbol(symbol_table, $1);
+                    if (sym == NULL) {
+                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $1, line_number);
+                    } else {
+                        set_initialized(symbol_table, $1);
+
+                        /* Type checking */
+                        DataType id_type = get_symbol_type(symbol_table, $1);
+                        if (id_type == TYPE_FLOAT && $3 == (int)$3) {
+                            /* Implicit int to float conversion is fine */
+                        } else if (id_type == TYPE_INT && $3 != (int)$3) {
+                            fprintf(stderr, "Warning: Possible loss of precision assigning float to int for '%s' at line %d\n",
+                                    $1, line_number);
+                        }
                     }
                 }
             }
@@ -95,27 +116,41 @@ atrib_decl	: ID ASSIGNMENT exp SEMICOLON
 
 read_decl	: READ LPAREN ID RPAREN SEMICOLON
             {
-                Symbol *sym = lookup_symbol(symbol_table, $3);
-                if (sym == NULL) {
-                    fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
-                } else {
-                    set_initialized(symbol_table, $3);
+                set_current_line(cmd_list, line_number);
+
+                /* Only process this read if not in skip mode */
+                if (!should_skip_execution(cmd_list)) {
+                    Symbol *sym = lookup_symbol(symbol_table, $3);
+                    if (sym == NULL) {
+                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
+                    } else {
+                        set_initialized(symbol_table, $3);
+                    }
                 }
             }
             ;
 
 write_decl	: WRITE LPAREN ID RPAREN SEMICOLON
             {
-                Symbol *sym = lookup_symbol(symbol_table, $3);
-                if (sym == NULL) {
-                    fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
-                } else if (!is_initialized(symbol_table, $3)) {
-                    fprintf(stderr, "Warning: Using uninitialized variable '%s' at line %d\n", $3, line_number);
+                set_current_line(cmd_list, line_number);
+
+                /* Only process this write if not in skip mode */
+                if (!should_skip_execution(cmd_list)) {
+                    Symbol *sym = lookup_symbol(symbol_table, $3);
+                    if (sym == NULL) {
+                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
+                    } else if (!is_initialized(symbol_table, $3)) {
+                        fprintf(stderr, "Warning: Using uninitialized variable '%s' at line %d\n", $3, line_number);
+                    }
                 }
             }
             | WRITE LPAREN STRING RPAREN SEMICOLON
             {
-                /* String literals are fine for WRITE */
+                set_current_line(cmd_list, line_number);
+                /* String literals are fine for WRITE, just check if we're in skip mode */
+                if (!should_skip_execution(cmd_list)) {
+                    /* Would actually print the string in a full implementation */
+                }
             }
             ;
 
@@ -233,13 +268,27 @@ char *s;
 }
 
 int main(void) {
+    /* Initialize both the symbol table and command list */
     symbol_table = create_symbol_table();
+    cmd_list = create_command_list();
 
     int result = yyparse();
 
+    /* Print detailed information about both structures */
     print_symbol_table(symbol_table);
+    print_command_list_info(cmd_list);
 
+    /* Print additional analysis of the symbol table */
+    symbol_table_statistics(symbol_table);
+    find_uninitialized_variables(symbol_table);
+
+    /* Dump variables by type as an example */
+    dump_variables_of_type(symbol_table, TYPE_INT);
+    dump_variables_of_type(symbol_table, TYPE_FLOAT);
+
+    /* Free both structures */
     free_symbol_table(symbol_table);
+    free_command_list(cmd_list);
 
     return result;
 }
