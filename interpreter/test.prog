@@ -33,8 +33,9 @@ if x < 10 then
     y = 5;
 end
 
-if y > 10 then
-    write("y is greater than 10");
+if (y > 10) and (y < 100000) then
+    write("y is greater than 10 and less than 100000");
+    write("here is the end of the exp");
 else
     write("y is less than or equal to 10");
 end
