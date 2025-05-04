@@ -6,33 +6,34 @@
 #include "command.h"
 
 extern int line_number;
-extern FILE *yyin;  // Add this line
+extern FILE *yyin;
 
 SymbolTable *symbol_table;
 CommandList *cmd_list;
 CommandList *current_block;
-Expression *last_condition; /* Store the last condition for if statements */
+Expression *last_condition;
 
 int yylex(void);
 int yyerror(char *s);
 %}
 
 %union {
-    char *sval;        /* Para strings e identificadores */
-    int ival;          /* Para números inteiros */
-    float fval;        /* Para números de ponto flutuante */
-    struct Expression *expr;  /* For expressions */
-    struct CommandList *block;/* For command blocks */
+    char *sval;
+    char cval;
+    int ival;
+    float fval;
+    struct Expression *expr;
+    struct CommandList *block;
 }
 
 %token <sval> ID STRING
 %token <ival> NUMBER
 %token <fval> FLOAT_NUMBER
-%token INT FLOAT CHAR TRUE FALSE IF THEN ELSE END
-%token WRITE READ EQUAL ASSIGNMENT LT GT PLUS MINUS TIMES DIVIDE
+%token <cval> CHAR_LITERAL
+%token INT FLOAT CHAR BOOL TRUE FALSE IF THEN ELSE END
+%token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 
-/* Define types for all non-terminals that return values */
 %type <expr> exp exp_logic and_exp not_exp rel_exp exp_simple term factor
 %type <ival> comp_op sum
 %type <block> if_part
@@ -53,14 +54,10 @@ declaration	: cond_decl
             | var_decl
             ;
 
-/* Define a non-terminal for the IF part to avoid conflicts */
 if_part     : IF exp THEN
             {
-
-                // Store the condition for later use
                 last_condition = $2;
 
-                // Create a new command list for the then block
                 $$ = create_sub_command_list(cmd_list);
                 current_block = $$;
             }
@@ -68,7 +65,6 @@ if_part     : IF exp THEN
 
 cond_decl   : if_part block END
             {
-                // Create if command with the condition and then block
                 Command *if_cmd = create_if_command(last_condition, $1, line_number);
 
                 current_block = cmd_list;
@@ -81,10 +77,8 @@ cond_decl   : if_part block END
             }
             block END
             {
-                // Create if-else command with condition, then block, and else block
                 Command *if_else_cmd = create_if_else_command(last_condition, $1, current_block, line_number);
 
-                // Add the if-else command to the parent command list
                 current_block = cmd_list;
                 add_command(current_block, if_else_cmd);
             }
@@ -111,6 +105,12 @@ var_decl : INT ID SEMICOLON
            add_command(current_block, cmd);
            free($2);
          }
+        | BOOL ID SEMICOLON
+        {
+            Command *cmd = create_declare_var_command($2, TYPE_BOOL, line_number);
+            add_command(current_block, cmd);
+            free($2);
+        }
        ;
 
 atrib_decl	: ID ASSIGNMENT exp SEMICOLON
@@ -141,6 +141,26 @@ write_decl	: WRITE LPAREN ID RPAREN SEMICOLON
                 Command *cmd = create_write_command(NULL, $3, line_number);
                 add_command(current_block, cmd);
                 free($3);
+            }
+            | WRITE LPAREN CHAR_LITERAL RPAREN SEMICOLON
+            {
+                char str[2] = {$3, '\0'};
+                Command *cmd = create_write_command(NULL, str, line_number);
+                add_command(current_block, cmd);
+            }
+            | WRITE LPAREN NUMBER RPAREN SEMICOLON
+            {
+                char str[1000000];
+                sprintf(str, "%d", $3);
+                Command *cmd = create_write_command(NULL, str, line_number);
+                add_command(current_block, cmd);
+            }
+            | WRITE LPAREN FLOAT_NUMBER RPAREN SEMICOLON
+            {
+                char str[1000000];
+                sprintf(str, "%f", $3);
+                Command *cmd = create_write_command(NULL, str, line_number);
+                add_command(current_block, cmd);
             }
             ;
 
@@ -192,6 +212,9 @@ rel_exp     : rel_exp comp_op exp_simple
 
 comp_op	: LT    { $$ = LT; }
         | GT    { $$ = GT; }
+        | GE    { $$ = GE; }
+        | LE    { $$ = LE; }
+        | NEQUAL { $$ = NEQUAL; }
         | EQUAL { $$ = EQUAL; }
         ;
 
@@ -235,6 +258,10 @@ factor	: LPAREN exp RPAREN
         {
             $$ = create_float_literal_expression($1);
         }
+        | CHAR_LITERAL
+        {
+            $$ = create_char_literal_expression($1);
+        }
         | ID
         {
             $$ = create_var_expression($1);
@@ -262,38 +289,31 @@ char *s;
 }
 
 int main(int argc, char *argv[]) {
-    // Check if a filename was provided
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
         return 1;
     }
 
-    // Open the input file
     FILE *input_file = fopen(argv[1], "r");
     if (!input_file) {
         fprintf(stderr, "Error: Could not open file '%s'\n", argv[1]);
         return 1;
     }
 
-    // Set flex to read from file instead of stdin
     yyin = input_file;
 
-    // Create symbol table and command list
     symbol_table = create_symbol_table();
     cmd_list = create_command_list(symbol_table);
 
     printf("Starting parser...\n");
 
-    // Parse the input
     int result = yyparse();
 
-    // Close the input file - parsing is complete
     fclose(input_file);
 
     print_symbol_table(symbol_table);
     print_command_list(cmd_list);
 
-    // Now execute the commands - at this point, stdin is available for user input
     execute_command_list(cmd_list);
 
     free_symbol_table(symbol_table);

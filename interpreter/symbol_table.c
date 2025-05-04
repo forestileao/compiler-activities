@@ -1,6 +1,5 @@
 #include "symbol_table.h"
 
-/* Implementation */
 SymbolTable* create_symbol_table() {
     SymbolTable *table = (SymbolTable*) malloc(sizeof(SymbolTable));
     if (table == NULL) {
@@ -119,7 +118,6 @@ void free_symbol_table(SymbolTable *table) {
     free(table);
 }
 
-/* Value manipulation functions */
 void set_int_value(SymbolTable *table, const char *name, int value) {
     Symbol *symbol = lookup_symbol(table, name);
     if (symbol != NULL) {

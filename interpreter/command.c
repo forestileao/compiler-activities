@@ -3,7 +3,6 @@
 #include <string.h>
 #include "command.h"
 
-/* CommandList operations */
 CommandList* create_command_list(SymbolTable *symbol_table) {
     CommandList *list = (CommandList*) malloc(sizeof(CommandList));
     if (list == NULL) {
@@ -40,7 +39,6 @@ CommandList* create_sub_command_list(CommandList *parent) {
     return sub_list;
 }
 
-/* Command creation functions */
 Command* create_declare_var_command(char *name, DataType type, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
@@ -152,7 +150,6 @@ Command* create_expression_command(Expression *expr, int line) {
     return cmd;
 }
 
-/* Expression creation functions */
 Expression* create_var_expression(char *name) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
@@ -188,6 +185,20 @@ Expression* create_float_literal_expression(float value) {
 
     expr->type = EXPR_FLOAT_LITERAL;
     expr->data.float_value = value;
+
+    return expr;
+}
+
+
+Expression* create_char_literal_expression(char value) {
+    Expression *expr = (Expression*) malloc(sizeof(Expression));
+    if (expr == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed for expression\n");
+        exit(1);
+    }
+
+    expr->type = EXPR_CHAR_LITERAL;
+    expr->data.char_value = value;
 
     return expr;
 }
@@ -234,7 +245,6 @@ Expression* create_unary_op_expression(int operator, Expression *operand) {
     return expr;
 }
 
-/* Utility functions */
 void free_expression(Expression *expr) {
     if (expr == NULL) return;
 
@@ -321,6 +331,9 @@ void print_expression(Expression *expr, int indent) {
             break;
         case EXPR_FLOAT_LITERAL:
             printf("%sFloat Literal: %f\n", indent_str, expr->data.float_value);
+            break;
+        case EXPR_CHAR_LITERAL:
+            printf("%sChar Literal: %c\n", indent_str, expr->data.char_value);
             break;
         case EXPR_BOOL_LITERAL:
             printf("%sBoolean Literal: %s\n", indent_str, expr->data.bool_value ? "true" : "false");
@@ -450,6 +463,8 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table) {
             return expr->data.int_value;
         case EXPR_FLOAT_LITERAL:
             return (int)expr->data.float_value;
+        case EXPR_CHAR_LITERAL:
+            return (int)expr->data.char_value;
         case EXPR_BOOL_LITERAL:
             return expr->data.bool_value;
         case EXPR_BINARY_OP: {
@@ -467,8 +482,11 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table) {
                     }
                     return left / right;
                 case LT:    return left < right;
+                case LE:    return left <= right;
                 case GT:    return left > right;
+                case GE:    return left >= right;
                 case EQUAL: return left == right;
+                case NEQUAL: return left != right;
                 case AND:   return left && right;
                 case OR:    return left || right;
                 default:    return 0;
@@ -521,6 +539,8 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
             return (float)expr->data.int_value;
         case EXPR_FLOAT_LITERAL:
             return expr->data.float_value;
+        case EXPR_CHAR_LITERAL:
+            return (float)expr->data.char_value;
         case EXPR_BOOL_LITERAL:
             return expr->data.bool_value ? 1.0f : 0.0f;
         case EXPR_BINARY_OP: {
@@ -538,8 +558,11 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
                     }
                     return left / right;
                 case LT:    return left < right ? 1.0f : 0.0f;
+                case LE:    return left <= right ? 1.0f : 0.0f;
                 case GT:    return left > right ? 1.0f : 0.0f;
+                case GE:    return left >= right ? 1.0f : 0.0f;
                 case EQUAL: return left == right ? 1.0f : 0.0f;
+                case NEQUAL: return left != right ? 1.0f : 0.0f;
                 case AND:   return (left != 0.0f && right != 0.0f) ? 1.0f : 0.0f;
                 case OR:    return (left != 0.0f || right != 0.0f) ? 1.0f : 0.0f;
                 default:    return 0.0f;
@@ -559,7 +582,6 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
     }
 }
 
-/* Command execution */
 void execute_command(Command *cmd, SymbolTable *symbol_table) {
     if (cmd == NULL) return;
 
@@ -576,7 +598,6 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                 return;
             }
 
-            // Check type compatibility and evaluate expression
             switch (symbol->type) {
                 case TYPE_INT: {
                     int value = evaluate_expression(cmd->data.assign.value, symbol_table);
@@ -640,7 +661,6 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                 }
                 case TYPE_CHAR: {
                     char value;
-                    // Skip any whitespace
                     while (getchar() != '\n');
                     value = getchar();
                     set_char_value(symbol_table, cmd->data.read.var_name, value);
@@ -662,10 +682,8 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
 
         case CMD_WRITE:
             if (cmd->data.write.string_literal) {
-                // String literal case
                 printf("%s\n", cmd->data.write.string_literal);
             } else {
-                // Expression case
                 Symbol *symbol = NULL;
                 if (cmd->data.write.expr->type == EXPR_VAR) {
                     symbol = lookup_symbol(symbol_table, cmd->data.write.expr->data.var_name);

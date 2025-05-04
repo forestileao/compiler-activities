@@ -1,6 +1,20 @@
 int x;
 float y;
 char c;
+bool i;
+
+i = not((11 >= 10) and (2 < 3) or (5 == 5)) or (not(5 == 5) or (2 < 3));
+
+c = 'A';
+write(c);
+write("i is: ");
+write(i);
+
+if i then
+    write("i is true");
+else
+    write("i is false");
+end
 
 x = 10;
 y = x + 20.5;

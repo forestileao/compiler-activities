@@ -7,20 +7,18 @@ int line_number = 1;
 
 %%
 
-  /* Data Types */
 int							return INT;
 float           return FLOAT;
 char						return CHAR;
 true						return TRUE;
 false						return FALSE;
+bool            return BOOL;
 
-  /* Conditions */
 if							return IF;
 then						return THEN;
 else						return ELSE;
 end							return END;
 
-  /* I/O Functions */
 write						return WRITE;
 read						return READ;
 
@@ -28,9 +26,8 @@ read						return READ;
 "and"           return AND;
 "not"           return NOT;
 
-  /* Keywords */
-\"([^"]*?)\"					    {yytext[yyleng-1] = '\0'; yylval.sval = strdup(yytext+1); return STRING;}
-
+\'[^']\'					        { yylval.cval = yytext[1]; return CHAR_LITERAL;}
+\"([^"]*?)\"					    { yytext[yyleng-1] = '\0'; yylval.sval = strdup(yytext+1); return STRING;}
 [a-zA-Z]([a-zA-Z0-9\-])*	{ yylval.sval = strdup(yytext); return ID;}
 
 [0-9]+  {
@@ -43,9 +40,10 @@ read						return READ;
   return FLOAT_NUMBER;
 }
 
-  /* Operators */
-
 "=="					  return EQUAL;
+"!="					  return NEQUAL;
+"<="						return LE;
+">="						return GE;
 "="						  return ASSIGNMENT;
 "<"							return LT;
 ">"							return GT;

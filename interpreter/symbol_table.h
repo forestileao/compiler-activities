@@ -13,7 +13,6 @@ typedef enum {
     TYPE_UNKNOWN
 } DataType;
 
-/* Define the Value union first */
 typedef union {
     int int_val;
     float float_val;
@@ -21,7 +20,6 @@ typedef union {
     int bool_val;
 } Value;
 
-/* Define the Symbol struct only once */
 typedef struct Symbol {
     char *name;
     DataType type;
@@ -36,7 +34,6 @@ typedef struct {
     int size;
 } SymbolTable;
 
-/* Function prototypes */
 SymbolTable* create_symbol_table();
 const char* data_type_to_string(DataType type);
 DataType string_to_data_type(const char* type_str);
@@ -48,7 +45,6 @@ DataType get_symbol_type(SymbolTable *table, const char *name);
 void print_symbol_table(SymbolTable *table);
 void free_symbol_table(SymbolTable *table);
 
-/* Value manipulation function prototypes */
 void set_int_value(SymbolTable *table, const char *name, int value);
 void set_float_value(SymbolTable *table, const char *name, float value);
 void set_char_value(SymbolTable *table, const char *name, char value);
