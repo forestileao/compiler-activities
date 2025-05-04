@@ -6,6 +6,7 @@
 #include "command.h"
 
 extern int line_number;
+extern FILE *yyin;  // Add this line
 
 SymbolTable *symbol_table;
 CommandList *cmd_list;
@@ -260,19 +261,39 @@ char *s;
   return 0;
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
+    // Check if a filename was provided
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+
+    // Open the input file
+    FILE *input_file = fopen(argv[1], "r");
+    if (!input_file) {
+        fprintf(stderr, "Error: Could not open file '%s'\n", argv[1]);
+        return 1;
+    }
+
+    // Set flex to read from file instead of stdin
+    yyin = input_file;
+
+    // Create symbol table and command list
     symbol_table = create_symbol_table();
     cmd_list = create_command_list(symbol_table);
 
     printf("Starting parser...\n");
 
-
+    // Parse the input
     int result = yyparse();
 
+    // Close the input file - parsing is complete
+    fclose(input_file);
 
     print_symbol_table(symbol_table);
     print_command_list(cmd_list);
 
+    // Now execute the commands - at this point, stdin is available for user input
     execute_command_list(cmd_list);
 
     free_symbol_table(symbol_table);

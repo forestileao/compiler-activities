@@ -3,16 +3,21 @@ float y;
 char c;
 
 x = 10;
-y = 20.5;
+y = x + 20.5;
+
+write("y is: ");
+write(y);
 
 read(x);
+
+write("x is: ");
+write(x);
 
 write("Hello, world!");
 
 if x < 10 then
     y = 5;
 end
-
 
 if y > 10 then
     write("y is greater than 10");
