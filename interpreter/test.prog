@@ -13,8 +13,8 @@ if x < 10 then
     y = 5;
 end
 
+
 if y > 10 then
-    write("y is greater than 10");
     write("y is greater than 10");
 else
     write("y is less than or equal to 10");

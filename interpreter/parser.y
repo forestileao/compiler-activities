@@ -55,7 +55,6 @@ declaration	: cond_decl
 /* Define a non-terminal for the IF part to avoid conflicts */
 if_part     : IF exp THEN
             {
-    print_command_list(cmd_list);
 
                 // Store the condition for later use
                 last_condition = $2;
@@ -71,20 +70,18 @@ cond_decl   : if_part block END
                 // Create if command with the condition and then block
                 Command *if_cmd = create_if_command(last_condition, $1, line_number);
 
-                // Add the if command to the parent command list
                 current_block = cmd_list;
                 add_command(current_block, if_cmd);
+
             }
             | if_part block ELSE
             {
-                // Save the then block and create a new command list for the else block
-                $<block>$ = $1;
                 current_block = create_sub_command_list(cmd_list);
             }
             block END
             {
                 // Create if-else command with condition, then block, and else block
-                Command *if_else_cmd = create_if_else_command(last_condition, $<block>3, current_block, line_number);
+                Command *if_else_cmd = create_if_else_command(last_condition, $1, current_block, line_number);
 
                 // Add the if-else command to the parent command list
                 current_block = cmd_list;
@@ -274,6 +271,7 @@ int main(void) {
 
 
     print_symbol_table(symbol_table);
+    print_command_list(cmd_list);
 
     execute_command_list(cmd_list);
 

@@ -29,7 +29,8 @@ read						return READ;
 "not"           return NOT;
 
   /* Keywords */
-\"([^"]*?)\"					    return STRING;
+\"([^"]*?)\"					    {yytext[yyleng-1] = '\0'; yylval.sval = strdup(yytext+1); return STRING;}
+
 [a-zA-Z]([a-zA-Z0-9\-])*	{ yylval.sval = strdup(yytext); return ID;}
 
 [0-9]+  {
