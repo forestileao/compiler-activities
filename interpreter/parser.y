@@ -1,5 +1,7 @@
 %{
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "symbol_table.h"
 #include "command.h"
 
@@ -7,15 +9,19 @@ extern int line_number;
 
 SymbolTable *symbol_table;
 CommandList *cmd_list;
+CommandList *current_block;
+Expression *last_condition; /* Store the last condition for if statements */
 
 int yylex(void);
 int yyerror(char *s);
 %}
 
 %union {
-    char *sval;  /* Para strings e identificadores */
-    int ival;    /* Para números inteiros */
-    float fval;  /* Para números de ponto flutuante */
+    char *sval;        /* Para strings e identificadores */
+    int ival;          /* Para números inteiros */
+    float fval;        /* Para números de ponto flutuante */
+    struct Expression *expr;  /* For expressions */
+    struct CommandList *block;/* For command blocks */
 }
 
 %token <sval> ID STRING
@@ -25,11 +31,14 @@ int yyerror(char *s);
 %token WRITE READ EQUAL ASSIGNMENT LT GT PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 
-%type <ival> exp exp_simple term factor comp_op sum
+/* Define types for all non-terminals that return values */
+%type <expr> exp exp_logic and_exp not_exp rel_exp exp_simple term factor
+%type <ival> comp_op sum
+%type <block> if_part
 
 %%
 
-program	: block
+program	: { current_block = cmd_list; } block
         ;
 
 block	: declaration
@@ -46,135 +55,142 @@ declaration	: cond_decl
 /* Define a non-terminal for the IF part to avoid conflicts */
 if_part     : IF exp THEN
             {
-                /* Before entering the IF block, push the condition to our command stack */
-                set_current_line(cmd_list, line_number);
-                push_if_command(cmd_list, $2, line_number);
+    print_command_list(cmd_list);
+
+                // Store the condition for later use
+                last_condition = $2;
+
+                // Create a new command list for the then block
+                $$ = create_sub_command_list(cmd_list);
+                current_block = $$;
             }
             ;
 
 cond_decl   : if_part block END
             {
-                /* When reaching END, process it to finalize this IF statement */
-                set_current_line(cmd_list, line_number);
-                process_end_command(cmd_list, line_number);
+                // Create if command with the condition and then block
+                Command *if_cmd = create_if_command(last_condition, $1, line_number);
+
+                // Add the if command to the parent command list
+                current_block = cmd_list;
+                add_command(current_block, if_cmd);
             }
             | if_part block ELSE
             {
-                /* When reaching ELSE, toggle the skip mode based on condition */
-                set_current_line(cmd_list, line_number);
-                process_else_command(cmd_list, line_number);
+                // Save the then block and create a new command list for the else block
+                $<block>$ = $1;
+                current_block = create_sub_command_list(cmd_list);
             }
             block END
             {
-                /* Process the END for the IF-ELSE statement */
-                set_current_line(cmd_list, line_number);
-                process_end_command(cmd_list, line_number);
+                // Create if-else command with condition, then block, and else block
+                Command *if_else_cmd = create_if_else_command(last_condition, $<block>3, current_block, line_number);
+
+                // Add the if-else command to the parent command list
+                current_block = cmd_list;
+                add_command(current_block, if_else_cmd);
             }
             ;
 
 var_decl : INT ID SEMICOLON
          {
-           insert_symbol(symbol_table, $2, TYPE_INT, line_number);
-           set_current_line(cmd_list, line_number);
+
+            Command *cmd = create_declare_var_command($2, TYPE_INT, line_number);
+
+            add_command(current_block, cmd);
+
+            free($2);
          }
        | FLOAT ID SEMICOLON
          {
-           insert_symbol(symbol_table, $2, TYPE_FLOAT, line_number);
-           set_current_line(cmd_list, line_number);
+            Command *cmd = create_declare_var_command($2, TYPE_FLOAT, line_number);
+            add_command(current_block, cmd);
+            free($2);
          }
        | CHAR ID SEMICOLON
          {
-           insert_symbol(symbol_table, $2, TYPE_CHAR, line_number);
-           set_current_line(cmd_list, line_number);
+           Command *cmd = create_declare_var_command($2, TYPE_CHAR, line_number);
+           add_command(current_block, cmd);
+           free($2);
          }
        ;
 
 atrib_decl	: ID ASSIGNMENT exp SEMICOLON
             {
-                set_current_line(cmd_list, line_number);
-
-                /* Only process this assignment if not in skip mode */
-                if (!should_skip_execution(cmd_list)) {
-                    Symbol *sym = lookup_symbol(symbol_table, $1);
-                    if (sym == NULL) {
-                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $1, line_number);
-                    } else {
-                        set_initialized(symbol_table, $1);
-
-                        /* Type checking */
-                        DataType id_type = get_symbol_type(symbol_table, $1);
-                        if (id_type == TYPE_FLOAT && $3 == (int)$3) {
-                            /* Implicit int to float conversion is fine */
-                        } else if (id_type == TYPE_INT && $3 != (int)$3) {
-                            fprintf(stderr, "Warning: Possible loss of precision assigning float to int for '%s' at line %d\n",
-                                    $1, line_number);
-                        }
-                    }
-                }
+                Command *cmd = create_assign_command($1, $3, line_number);
+                add_command(current_block, cmd);
+                free($1);
             }
             ;
 
 read_decl	: READ LPAREN ID RPAREN SEMICOLON
             {
-                set_current_line(cmd_list, line_number);
-
-                /* Only process this read if not in skip mode */
-                if (!should_skip_execution(cmd_list)) {
-                    Symbol *sym = lookup_symbol(symbol_table, $3);
-                    if (sym == NULL) {
-                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
-                    } else {
-                        set_initialized(symbol_table, $3);
-                    }
-                }
+                Command *cmd = create_read_command($3, line_number);
+                add_command(current_block, cmd);
+                free($3);
             }
             ;
 
 write_decl	: WRITE LPAREN ID RPAREN SEMICOLON
             {
-                set_current_line(cmd_list, line_number);
-
-                /* Only process this write if not in skip mode */
-                if (!should_skip_execution(cmd_list)) {
-                    Symbol *sym = lookup_symbol(symbol_table, $3);
-                    if (sym == NULL) {
-                        fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $3, line_number);
-                    } else if (!is_initialized(symbol_table, $3)) {
-                        fprintf(stderr, "Warning: Using uninitialized variable '%s' at line %d\n", $3, line_number);
-                    }
-                }
+                Expression *expr = create_var_expression($3);
+                Command *cmd = create_write_command(expr, NULL, line_number);
+                add_command(current_block, cmd);
+                free($3);
             }
             | WRITE LPAREN STRING RPAREN SEMICOLON
             {
-                set_current_line(cmd_list, line_number);
-                /* String literals are fine for WRITE, just check if we're in skip mode */
-                if (!should_skip_execution(cmd_list)) {
-                    /* Would actually print the string in a full implementation */
-                }
+                Command *cmd = create_write_command(NULL, $3, line_number);
+                add_command(current_block, cmd);
+                free($3);
             }
             ;
 
-exp		: exp_simple comp_op exp_simple
-        {
-            /* Comparison operations */
-            if ($2 == LT) {
-                $$ = ($1 < $3) ? 1 : 0;
-            }
-            else if ($2 == GT) {
-                $$ = ($1 > $3) ? 1 : 0;
-            }
-            else if ($2 == EQUAL) {
-                $$ = ($1 == $3) ? 1 : 0;
-            }
-            else {
-                $$ = 0; /* Default case */
-            }
-        }
-        | exp_simple
+exp     : exp_logic
         {
             $$ = $1;
         }
         ;
+
+exp_logic   : exp_logic OR and_exp
+            {
+                $$ = create_binary_op_expression($1, OR, $3);
+            }
+            | and_exp
+            {
+                $$ = $1;
+            }
+            ;
+
+and_exp     : and_exp AND not_exp
+            {
+                $$ = create_binary_op_expression($1, AND, $3);
+            }
+            | not_exp
+            {
+                $$ = $1;
+            }
+            ;
+
+not_exp     : NOT rel_exp
+            {
+                $$ = create_unary_op_expression(NOT, $2);
+            }
+            | rel_exp
+            {
+                $$ = $1;
+            }
+            ;
+
+rel_exp     : rel_exp comp_op exp_simple
+            {
+                $$ = create_binary_op_expression($1, $2, $3);
+            }
+            | exp_simple
+            {
+                $$ = $1;
+            }
+            ;
 
 comp_op	: LT    { $$ = LT; }
         | GT    { $$ = GT; }
@@ -183,13 +199,7 @@ comp_op	: LT    { $$ = LT; }
 
 exp_simple	: exp_simple sum term
             {
-                if ($2 == PLUS) {
-                    $$ = $1 + $3;
-                } else if ($2 == MINUS) {
-                    $$ = $1 - $3;
-                } else {
-                    $$ = $1; /* Default case - should not happen */
-                }
+                $$ = create_binary_op_expression($1, $2, $3);
             }
             | term
             {
@@ -203,16 +213,11 @@ sum	: PLUS  { $$ = PLUS; }
 
 term	: term TIMES factor
         {
-            $$ = $1 * $3;
+            $$ = create_binary_op_expression($1, TIMES, $3);
         }
         | term DIVIDE factor
         {
-            if ($3 == 0) {
-                fprintf(stderr, "Error: Division by zero at line %d\n", line_number);
-                $$ = 0; /* Avoid crash, but mark as error */
-            } else {
-                $$ = $1 / $3;
-            }
+            $$ = create_binary_op_expression($1, DIVIDE, $3);
         }
         | factor
         {
@@ -226,33 +231,24 @@ factor	: LPAREN exp RPAREN
         }
         | NUMBER
         {
-            $$ = $1;
+            $$ = create_int_literal_expression($1);
         }
         | FLOAT_NUMBER
         {
-            $$ = (int)$1; /* Convert to int for simplicity in this example */
+            $$ = create_float_literal_expression($1);
         }
         | ID
         {
-            Symbol *sym = lookup_symbol(symbol_table, $1);
-            if (sym == NULL) {
-                fprintf(stderr, "Error: Undeclared variable '%s' at line %d\n", $1, line_number);
-                $$ = 0; /* Default value for error */
-            } else if (!is_initialized(symbol_table, $1)) {
-                fprintf(stderr, "Warning: Using uninitialized variable '%s' at line %d\n", $1, line_number);
-                $$ = 0; /* Default value for uninitialized */
-            } else {
-                /* Here we would return the actual value, but we don't track values in this example */
-                $$ = 1; /* Placeholder value */
-            }
+            $$ = create_var_expression($1);
+            free($1);
         }
         | TRUE
         {
-            $$ = 1;
+            $$ = create_bool_literal_expression(1);
         }
         | FALSE
         {
-            $$ = 0;
+            $$ = create_bool_literal_expression(0);
         }
         ;
 
@@ -268,25 +264,19 @@ char *s;
 }
 
 int main(void) {
-    /* Initialize both the symbol table and command list */
     symbol_table = create_symbol_table();
-    cmd_list = create_command_list();
+    cmd_list = create_command_list(symbol_table);
+
+    printf("Starting parser...\n");
+
 
     int result = yyparse();
 
-    /* Print detailed information about both structures */
+
     print_symbol_table(symbol_table);
-    print_command_list_info(cmd_list);
 
-    /* Print additional analysis of the symbol table */
-    symbol_table_statistics(symbol_table);
-    find_uninitialized_variables(symbol_table);
+    execute_command_list(cmd_list);
 
-    /* Dump variables by type as an example */
-    dump_variables_of_type(symbol_table, TYPE_INT);
-    dump_variables_of_type(symbol_table, TYPE_FLOAT);
-
-    /* Free both structures */
     free_symbol_table(symbol_table);
     free_command_list(cmd_list);
 
