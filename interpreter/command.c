@@ -1,13 +1,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+
 #include "command.h"
+
+void panic(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    fprintf(stderr, "[PANIC] ");
+
+    vfprintf(stderr, format, args);
+
+    if (format[0] != '\0' && format[strlen(format) - 1] != '\n') {
+        fprintf(stderr, "\n");
+    }
+
+    va_end(args);
+
+    exit(1);
+}
 
 CommandList* create_command_list(SymbolTable *symbol_table) {
     CommandList *list = (CommandList*) malloc(sizeof(CommandList));
     if (list == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command list\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command list\n");
     }
 
     list->head = NULL;
@@ -42,8 +60,7 @@ CommandList* create_sub_command_list(CommandList *parent) {
 Command* create_declare_var_command(char *name, DataType type, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_DECLARE_VAR;
@@ -58,8 +75,7 @@ Command* create_declare_var_command(char *name, DataType type, int line) {
 Command* create_assign_command(char *name, Expression *value, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_ASSIGN;
@@ -74,8 +90,7 @@ Command* create_assign_command(char *name, Expression *value, int line) {
 Command* create_read_command(char *var_name, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_READ;
@@ -89,8 +104,7 @@ Command* create_read_command(char *var_name, int line) {
 Command* create_write_command(Expression *expr, char *string_literal, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_WRITE;
@@ -105,8 +119,7 @@ Command* create_write_command(Expression *expr, char *string_literal, int line) 
 Command* create_if_command(Expression *condition, CommandList *then_block, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_IF;
@@ -121,8 +134,7 @@ Command* create_if_command(Expression *condition, CommandList *then_block, int l
 Command* create_if_else_command(Expression *condition, CommandList *then_block, CommandList *else_block, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_IF_ELSE;
@@ -138,8 +150,7 @@ Command* create_if_else_command(Expression *condition, CommandList *then_block, 
 Command* create_expression_command(Expression *expr, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for command\n");
-        exit(1);
+        panic("Error: Memory allocation failed for command\n");
     }
 
     cmd->type = CMD_EXPRESSION;
@@ -153,8 +164,7 @@ Command* create_expression_command(Expression *expr, int line) {
 Expression* create_var_expression(char *name) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_VAR;
@@ -166,8 +176,7 @@ Expression* create_var_expression(char *name) {
 Expression* create_int_literal_expression(int value) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_INT_LITERAL;
@@ -179,8 +188,7 @@ Expression* create_int_literal_expression(int value) {
 Expression* create_float_literal_expression(float value) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_FLOAT_LITERAL;
@@ -193,8 +201,7 @@ Expression* create_float_literal_expression(float value) {
 Expression* create_char_literal_expression(char value) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_CHAR_LITERAL;
@@ -206,8 +213,7 @@ Expression* create_char_literal_expression(char value) {
 Expression* create_bool_literal_expression(int value) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_BOOL_LITERAL;
@@ -219,8 +225,7 @@ Expression* create_bool_literal_expression(int value) {
 Expression* create_binary_op_expression(Expression *left, int operator, Expression *right) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_BINARY_OP;
@@ -234,8 +239,7 @@ Expression* create_binary_op_expression(Expression *left, int operator, Expressi
 Expression* create_unary_op_expression(int operator, Expression *operand) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
-        fprintf(stderr, "Error: Memory allocation failed for expression\n");
-        exit(1);
+        panic("Error: Memory allocation failed for expression\n");
     }
 
     expr->type = EXPR_UNARY_OP;
@@ -437,12 +441,12 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table) {
         case EXPR_VAR: {
             Symbol *symbol = lookup_symbol(symbol_table, expr->data.var_name);
             if (symbol == NULL) {
-                fprintf(stderr, "Error: Undefined variable '%s'\n", expr->data.var_name);
+                panic("Error: Undefined variable '%s'\n", expr->data.var_name);
                 return 0;
             }
 
             if (!symbol->is_initialized) {
-                fprintf(stderr, "Warning: Using uninitialized variable '%s'\n", expr->data.var_name);
+                panic("Warning: Using uninitialized variable '%s'\n", expr->data.var_name);
                 return 0;
             }
 
@@ -477,7 +481,7 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table) {
                 case TIMES: return left * right;
                 case DIVIDE:
                     if (right == 0) {
-                        fprintf(stderr, "Error: Division by zero\n");
+                        panic("Error: Division by zero\n");
                         return 0;
                     }
                     return left / right;
@@ -513,12 +517,12 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
         case EXPR_VAR: {
             Symbol *symbol = lookup_symbol(symbol_table, expr->data.var_name);
             if (symbol == NULL) {
-                fprintf(stderr, "Error: Undefined variable '%s'\n", expr->data.var_name);
+                panic("Error: Undefined variable '%s'\n", expr->data.var_name);
                 return 0.0f;
             }
 
             if (!symbol->is_initialized) {
-                fprintf(stderr, "Warning: Using uninitialized variable '%s'\n", expr->data.var_name);
+                panic("Warning: Using uninitialized variable '%s'\n", expr->data.var_name);
                 return 0.0f;
             }
 
@@ -553,7 +557,7 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
                 case TIMES: return left * right;
                 case DIVIDE:
                     if (right == 0.0f) {
-                        fprintf(stderr, "Error: Division by zero\n");
+                        panic("Error: Division by zero\n");
                         return 0.0f;
                     }
                     return left / right;
@@ -593,7 +597,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
         case CMD_ASSIGN: {
             Symbol *symbol = lookup_symbol(symbol_table, cmd->data.assign.name);
             if (symbol == NULL) {
-                fprintf(stderr, "Error: Undefined variable '%s' at line %d\n",
+                panic("Error: Undefined variable '%s' at line %d\n",
                         cmd->data.assign.name, cmd->line_number);
                 return;
             }
@@ -624,7 +628,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                     break;
                 }
                 default:
-                    fprintf(stderr, "Error: Unsupported variable type for '%s'\n", cmd->data.assign.name);
+                    panic("Error: Unsupported variable type for '%s'\n", cmd->data.assign.name);
                     break;
             }
             break;
@@ -633,7 +637,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
         case CMD_READ: {
             Symbol *symbol = lookup_symbol(symbol_table, cmd->data.read.var_name);
             if (symbol == NULL) {
-                fprintf(stderr, "Error: Undefined variable '%s' at line %d\n",
+                panic("Error: Undefined variable '%s' at line %d\n",
                         cmd->data.read.var_name, cmd->line_number);
                 return;
             }
@@ -646,7 +650,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                     if (scanf("%d", &value) == 1) {
                         set_int_value(symbol_table, cmd->data.read.var_name, value);
                     } else {
-                        fprintf(stderr, "Error: Invalid input for integer\n");
+                        panic("Error: Invalid input for integer\n");
                     }
                     break;
                 }
@@ -655,7 +659,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                     if (scanf("%f", &value) == 1) {
                         set_float_value(symbol_table, cmd->data.read.var_name, value);
                     } else {
-                        fprintf(stderr, "Error: Invalid input for float\n");
+                        panic("Error: Invalid input for float\n");
                     }
                     break;
                 }
@@ -674,7 +678,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                     break;
                 }
                 default:
-                    fprintf(stderr, "Error: Unsupported variable type for '%s'\n", cmd->data.read.var_name);
+                    panic("Error: Unsupported variable type for '%s'\n", cmd->data.read.var_name);
                     break;
             }
             break;
@@ -760,8 +764,7 @@ void execute_command_list(CommandList *list) {
 BlockStack *create_block_stack() {
     BlockStack *stack = (BlockStack *)malloc(sizeof(BlockStack));
     if (stack == NULL) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(1);
+        panic("Memory allocation error\n");
     }
     stack->top = NULL;
     return stack;
@@ -770,8 +773,7 @@ BlockStack *create_block_stack() {
 void push_block(BlockStack *stack, CommandList *block) {
     BlockStackNode *node = (BlockStackNode *)malloc(sizeof(BlockStackNode));
     if (node == NULL) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(1);
+        panic("Memory allocation error\n");
     }
     node->block = block;
     node->next = stack->top;
@@ -780,7 +782,7 @@ void push_block(BlockStack *stack, CommandList *block) {
 
 CommandList *pop_block(BlockStack *stack) {
     if (stack->top == NULL) {
-        fprintf(stderr, "Error: Block stack underflow\n");
+        panic("Error: Block stack underflow\n");
         return NULL;
     }
 

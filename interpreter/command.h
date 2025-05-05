@@ -106,6 +106,8 @@ typedef struct {
     BlockStackNode *top;
 } BlockStack;
 
+void panic(const char *format, ...);
+
 BlockStack *create_block_stack();
 void push_block(BlockStack *stack, CommandList *block);
 CommandList *pop_block(BlockStack *stack);
