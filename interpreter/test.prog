@@ -17,7 +17,7 @@ else
 end
 
 x = 10;
-y = x + 20.5;
+y = x + 120.5;
 
 write("y is: ");
 write(y);
@@ -35,6 +35,13 @@ end
 
 if (y > 10) and (y < 100000) then
     write("y is greater than 10 and less than 100000");
+
+    if y > 100 then
+        write("y is greater than 100");
+    else
+        write("y is less than or equal to 100");
+    end
+
     write("here is the end of the exp");
 else
     write("y is less than or equal to 10");

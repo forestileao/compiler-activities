@@ -756,3 +756,46 @@ void execute_command_list(CommandList *list) {
         current = current->next;
     }
 }
+
+BlockStack *create_block_stack() {
+    BlockStack *stack = (BlockStack *)malloc(sizeof(BlockStack));
+    if (stack == NULL) {
+        fprintf(stderr, "Memory allocation error\n");
+        exit(1);
+    }
+    stack->top = NULL;
+    return stack;
+}
+
+void push_block(BlockStack *stack, CommandList *block) {
+    BlockStackNode *node = (BlockStackNode *)malloc(sizeof(BlockStackNode));
+    if (node == NULL) {
+        fprintf(stderr, "Memory allocation error\n");
+        exit(1);
+    }
+    node->block = block;
+    node->next = stack->top;
+    stack->top = node;
+}
+
+CommandList *pop_block(BlockStack *stack) {
+    if (stack->top == NULL) {
+        fprintf(stderr, "Error: Block stack underflow\n");
+        return NULL;
+    }
+
+    BlockStackNode *temp = stack->top;
+    CommandList *block = temp->block;
+    stack->top = temp->next;
+    free(temp);
+    return block;
+}
+
+void free_block_stack(BlockStack *stack) {
+    while (stack->top != NULL) {
+        BlockStackNode *temp = stack->top;
+        stack->top = temp->next;
+        free(temp);
+    }
+    free(stack);
+}

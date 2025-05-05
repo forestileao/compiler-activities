@@ -97,6 +97,20 @@ typedef struct CommandList {
     SymbolTable *symbol_table;
 } CommandList;
 
+typedef struct BlockStackNode {
+    CommandList *block;
+    struct BlockStackNode *next;
+} BlockStackNode;
+
+typedef struct {
+    BlockStackNode *top;
+} BlockStack;
+
+BlockStack *create_block_stack();
+void push_block(BlockStack *stack, CommandList *block);
+CommandList *pop_block(BlockStack *stack);
+void free_block_stack(BlockStack *stack);
+
 CommandList* create_command_list(SymbolTable *symbol_table);
 void free_command_list(CommandList *list);
 void print_command_list(CommandList *list);

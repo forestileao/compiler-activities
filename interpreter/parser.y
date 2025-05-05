@@ -11,6 +11,7 @@ extern FILE *yyin;
 SymbolTable *symbol_table;
 CommandList *cmd_list;
 CommandList *current_block;
+BlockStack *block_stack;
 Expression *last_condition;
 
 int yylex(void);
@@ -57,6 +58,7 @@ declaration	: cond_decl
 if_part     : IF exp THEN
             {
                 last_condition = $2;
+                push_block(block_stack, current_block);
 
                 $$ = create_sub_command_list(cmd_list);
                 current_block = $$;
@@ -67,19 +69,20 @@ cond_decl   : if_part block END
             {
                 Command *if_cmd = create_if_command(last_condition, $1, line_number);
 
-                current_block = cmd_list;
+                current_block = pop_block(block_stack);
                 add_command(current_block, if_cmd);
-
             }
             | if_part block ELSE
             {
+                current_block = pop_block(block_stack);
+                push_block(block_stack, current_block);
                 current_block = create_sub_command_list(cmd_list);
             }
             block END
             {
                 Command *if_else_cmd = create_if_else_command(last_condition, $1, current_block, line_number);
 
-                current_block = cmd_list;
+                current_block = pop_block(block_stack);
                 add_command(current_block, if_else_cmd);
             }
             ;
@@ -304,8 +307,7 @@ int main(int argc, char *argv[]) {
 
     symbol_table = create_symbol_table();
     cmd_list = create_command_list(symbol_table);
-
-    printf("Starting parser...\n");
+    block_stack = create_block_stack();
 
     int result = yyparse();
 
