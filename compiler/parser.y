@@ -336,8 +336,7 @@ int main(int argc, char *argv[]) {
         print_symbol_table(symbol_table);
         print_command_list(cmd_list);
 
-        // Initialize code generation
-        init_code_generation(output_filename);
+        init_code_generation(output_filename, symbol_table);
 
         // Generate code for the entire command list
         generate_code_for_command_list(cmd_list);

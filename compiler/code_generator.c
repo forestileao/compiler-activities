@@ -5,6 +5,7 @@
 
 static FILE *output_file = NULL;
 static int indent_level = 0;
+static SymbolTable *current_symbol_table = NULL;
 
 // Helper function to output indentation
 static void output_indent() {
@@ -13,17 +14,21 @@ static void output_indent() {
     }
 }
 
-void init_code_generation(const char *output_filename) {
+void init_code_generation(const char *output_filename, SymbolTable *symbol_table) {
     output_file = fopen(output_filename, "w");
     if (!output_file) {
         fprintf(stderr, "Error: Could not open output file '%s'\n", output_filename);
         exit(1);
     }
 
+    // Store the symbol table for later use
+    current_symbol_table = symbol_table;
+
     // Output C program header
     fprintf(output_file, "#include <stdio.h>\n");
     fprintf(output_file, "#include <stdlib.h>\n");
-    fprintf(output_file, "#include <stdbool.h>\n\n");
+    fprintf(output_file, "#include <stdbool.h>\n");
+    fprintf(output_file, "#include <string.h>\n\n");
     fprintf(output_file, "int main() {\n");
 
     indent_level = 1;
@@ -40,6 +45,17 @@ void finalize_code_generation() {
 
     fclose(output_file);
     output_file = NULL;
+}
+
+// Determine the printf format specifier for a given data type
+const char* get_format_for_type(DataType type) {
+    switch (type) {
+        case TYPE_INT:   return "%d";
+        case TYPE_FLOAT: return "%f";
+        case TYPE_CHAR:  return "%c";
+        case TYPE_BOOL:  return "%s"; // Will be handled specially
+        default:         return "%d"; // Default to int
+    }
 }
 
 // Generate C code for an expression
@@ -111,6 +127,29 @@ void generate_float_expression_code(Expression *expr, SymbolTable *symbol_table)
     generate_expression_code(expr, symbol_table);
 }
 
+// Get the type of an expression
+DataType get_expression_type(Expression *expr, SymbolTable *symbol_table) {
+    if (!expr) return TYPE_UNKNOWN;
+
+    switch (expr->type) {
+        case EXPR_VAR: {
+            Symbol *symbol = lookup_symbol(symbol_table, expr->data.var_name);
+            return symbol ? symbol->type : TYPE_UNKNOWN;
+        }
+        case EXPR_INT_LITERAL:
+            return TYPE_INT;
+        case EXPR_FLOAT_LITERAL:
+            return TYPE_FLOAT;
+        case EXPR_CHAR_LITERAL:
+            return TYPE_CHAR;
+        case EXPR_BOOL_LITERAL:
+            return TYPE_BOOL;
+        // For complex expressions, we would need more sophisticated type inference
+        default:
+            return TYPE_UNKNOWN;
+    }
+}
+
 void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
     if (!cmd || !output_file) return;
 
@@ -126,7 +165,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                 case TYPE_BOOL:  type_str = "bool"; break;
                 default:         type_str = "void"; break;
             }
-
+            insert_symbol(symbol_table, cmd->data.declare_var.name, cmd->data.declare_var.data_type, cmd->line_number);
             fprintf(output_file, "%s %s;\n", type_str, cmd->data.declare_var.name);
             break;
         }
@@ -137,7 +176,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             fprintf(output_file, ";\n");
             break;
 
-        case CMD_READ:
+        case CMD_READ: {
             fprintf(output_file, "printf(\"Enter value for %s: \");\n", cmd->data.read.var_name);
             output_indent();
 
@@ -174,42 +213,24 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                         break;
                 }
             } else {
-                fprintf(output_file, "/* Warning: Unknown variable %s */\n", cmd->data.read.var_name);
+                fprintf(output_file, "/* Variable %s not found in symbol table */\n", cmd->data.read.var_name);
+                fprintf(output_file, "scanf(\"%%d\", &%s);\n", cmd->data.read.var_name);
             }
             break;
+        }
 
         case CMD_WRITE:
             if (cmd->data.write.string_literal) {
                 fprintf(output_file, "printf(\"%s\\n\");\n", cmd->data.write.string_literal);
             } else if (cmd->data.write.expr) {
-                Symbol *symbol = NULL;
-                if (cmd->data.write.expr->type == EXPR_VAR) {
-                    symbol = lookup_symbol(symbol_table, cmd->data.write.expr->data.var_name);
-                }
+                DataType expr_type = get_expression_type(cmd->data.write.expr, symbol_table);
 
-                if (symbol) {
-                    const char *format;
-                    switch (symbol->type) {
-                        case TYPE_INT:   format = "%%d"; break;
-                        case TYPE_FLOAT: format = "%%f"; break;
-                        case TYPE_CHAR:  format = "%%c"; break;
-                        case TYPE_BOOL:  format = "%%s"; break;
-                        default:         format = "??"; break;
-                    }
-
-                    if (symbol->type == TYPE_BOOL) {
-                        // Special handling for boolean output
-                        fprintf(output_file, "printf(\"%s\\n\", ", format);
-                        generate_expression_code(cmd->data.write.expr, symbol_table);
-                        fprintf(output_file, " ? \"true\" : \"false\");\n");
-                    } else {
-                        fprintf(output_file, "printf(\"%s\\n\", ", format);
-                        generate_expression_code(cmd->data.write.expr, symbol_table);
-                        fprintf(output_file, ");\n");
-                    }
+                if (expr_type == TYPE_BOOL) {
+                    fprintf(output_file, "printf(\"%%s\\n\", ");
+                    generate_expression_code(cmd->data.write.expr, symbol_table);
+                    fprintf(output_file, " ? \"true\" : \"false\");\n");
                 } else {
-                    // Default to int format if we can't determine the type
-                    fprintf(output_file, "printf(\"%%d\\n\", ");
+                    fprintf(output_file, "printf(\"%s\\n\", ", get_format_for_type(expr_type));
                     generate_expression_code(cmd->data.write.expr, symbol_table);
                     fprintf(output_file, ");\n");
                 }
@@ -259,9 +280,12 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
 void generate_code_for_command_list(CommandList *list) {
     if (!list || !output_file) return;
 
+    // Use the symbol table from the command list
+    SymbolTable *symbol_table = list->symbol_table;
+
     Command *current = list->head;
     while (current != NULL) {
-        generate_code_for_command(current, list->symbol_table);
+        generate_code_for_command(current, symbol_table);
         current = current->next;
     }
 }
