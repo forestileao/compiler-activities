@@ -320,6 +320,7 @@ int main(int argc, char *argv[]) {
 
     free_symbol_table(symbol_table);
     free_command_list(cmd_list);
+    free_block_stack(block_stack);
 
     return result;
 }
