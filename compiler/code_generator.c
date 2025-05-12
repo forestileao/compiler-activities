@@ -11,6 +11,7 @@ static LLVMModuleRef module = NULL;
 static LLVMBuilderRef builder = NULL;
 static SymbolTable *current_symbol_table = NULL;
 static const char *saved_output_filename = NULL;
+static int if_counter = 0;          // Counter for if statements
 
 
 // Map to store LLVM values for variables
@@ -214,40 +215,101 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
 
             if (!left || !right) return NULL;
 
+            // Debug boolean operations
+            printf("Binary op: %d\n", expr->data.binary_op.operator);
+
             // Get the type of operands
             DataType left_type = get_expression_type(expr->data.binary_op.left, symbol_table);
             DataType right_type = get_expression_type(expr->data.binary_op.right, symbol_table);
 
-            // Handle integer operations
+            // For logical operators (AND, OR), ensure operands are boolean
+            if (expr->data.binary_op.operator == AND || expr->data.binary_op.operator == OR) {
+                printf("Logical operator: %s\n", expr->data.binary_op.operator == AND ? "AND" : "OR");
+
+                // Ensure left is boolean
+                if (LLVMGetTypeKind(LLVMTypeOf(left)) != LLVMIntegerTypeKind ||
+                    LLVMGetIntTypeWidth(LLVMTypeOf(left)) != 1) {
+                    printf("Converting left operand to boolean\n");
+                    left = LLVMBuildICmp(builder, LLVMIntNE, left,
+                        LLVMConstInt(LLVMTypeOf(left), 0, 0), "left_to_bool");
+                }
+
+                // Ensure right is boolean
+                if (LLVMGetTypeKind(LLVMTypeOf(right)) != LLVMIntegerTypeKind ||
+                    LLVMGetIntTypeWidth(LLVMTypeOf(right)) != 1) {
+                    printf("Converting right operand to boolean\n");
+                    right = LLVMBuildICmp(builder, LLVMIntNE, right,
+                        LLVMConstInt(LLVMTypeOf(right), 0, 0), "right_to_bool");
+                }
+
+                // Now perform the logical operation
+                if (expr->data.binary_op.operator == AND) {
+                    return LLVMBuildAnd(builder, left, right, "logical_and");
+                } else { // OR
+                    return LLVMBuildOr(builder, left, right, "logical_or");
+                }
+            }
+
+            // Handle comparison operators - ensure they return i1 (boolean)
+            if (expr->data.binary_op.operator >= LT && expr->data.binary_op.operator <= NEQUAL) {
+                // Integer comparisons
+                if (left_type == TYPE_INT && right_type == TYPE_INT) {
+                    switch (expr->data.binary_op.operator) {
+                        case LT:     return LLVMBuildICmp(builder, LLVMIntSLT, left, right, "lt");
+                        case LE:     return LLVMBuildICmp(builder, LLVMIntSLE, left, right, "le");
+                        case GT:     return LLVMBuildICmp(builder, LLVMIntSGT, left, right, "gt");
+                        case GE:     return LLVMBuildICmp(builder, LLVMIntSGE, left, right, "ge");
+                        case EQUAL:  return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "eq");
+                        case NEQUAL: return LLVMBuildICmp(builder, LLVMIntNE, left, right, "ne");
+                        default:     return NULL;
+                    }
+                }
+                // Float comparisons
+                else if (left_type == TYPE_FLOAT || right_type == TYPE_FLOAT) {
+                    // Convert integer to float if needed
+                    if (left_type == TYPE_INT) {
+                        left = LLVMBuildSIToFP(builder, left, LLVMFloatType(), "int_to_float_left");
+                    }
+                    if (right_type == TYPE_INT) {
+                        right = LLVMBuildSIToFP(builder, right, LLVMFloatType(), "int_to_float_right");
+                    }
+
+                    switch (expr->data.binary_op.operator) {
+                        case LT:     return LLVMBuildFCmp(builder, LLVMRealOLT, left, right, "flt");
+                        case LE:     return LLVMBuildFCmp(builder, LLVMRealOLE, left, right, "fle");
+                        case GT:     return LLVMBuildFCmp(builder, LLVMRealOGT, left, right, "fgt");
+                        case GE:     return LLVMBuildFCmp(builder, LLVMRealOGE, left, right, "fge");
+                        case EQUAL:  return LLVMBuildFCmp(builder, LLVMRealOEQ, left, right, "feq");
+                        case NEQUAL: return LLVMBuildFCmp(builder, LLVMRealONE, left, right, "fne");
+                        default:     return NULL;
+                    }
+                }
+            }
+
+            // Regular arithmetic operations
             if (left_type == TYPE_INT && right_type == TYPE_INT) {
                 switch (expr->data.binary_op.operator) {
                     case PLUS:   return LLVMBuildAdd(builder, left, right, "add");
                     case MINUS:  return LLVMBuildSub(builder, left, right, "sub");
                     case TIMES:  return LLVMBuildMul(builder, left, right, "mul");
                     case DIVIDE: return LLVMBuildSDiv(builder, left, right, "div");
-                    case LT:     return LLVMBuildICmp(builder, LLVMIntSLT, left, right, "lt");
-                    case LE:     return LLVMBuildICmp(builder, LLVMIntSLE, left, right, "le");
-                    case GT:     return LLVMBuildICmp(builder, LLVMIntSGT, left, right, "gt");
-                    case GE:     return LLVMBuildICmp(builder, LLVMIntSGE, left, right, "ge");
-                    case EQUAL:  return LLVMBuildICmp(builder, LLVMIntEQ, left, right, "eq");
-                    case NEQUAL: return LLVMBuildICmp(builder, LLVMIntNE, left, right, "ne");
-                    // Logical operations need boolean conversion
-                    case AND: {
-                        // Convert to boolean if needed
-                        LLVMValueRef left_bool = LLVMBuildICmp(builder, LLVMIntNE, left,
-                                                LLVMConstInt(LLVMTypeOf(left), 0, 0), "tobool1");
-                        LLVMValueRef right_bool = LLVMBuildICmp(builder, LLVMIntNE, right,
-                                                LLVMConstInt(LLVMTypeOf(right), 0, 0), "tobool2");
-                        return LLVMBuildAnd(builder, left_bool, right_bool, "and");
-                    }
-                    case OR: {
-                        // Convert to boolean if needed
-                        LLVMValueRef left_bool = LLVMBuildICmp(builder, LLVMIntNE, left,
-                                                LLVMConstInt(LLVMTypeOf(left), 0, 0), "tobool1");
-                        LLVMValueRef right_bool = LLVMBuildICmp(builder, LLVMIntNE, right,
-                                                LLVMConstInt(LLVMTypeOf(right), 0, 0), "tobool2");
-                        return LLVMBuildOr(builder, left_bool, right_bool, "or");
-                    }
+                    default:     return NULL;
+                }
+            }
+            else if (left_type == TYPE_FLOAT || right_type == TYPE_FLOAT) {
+                // Convert integer to float if needed
+                if (left_type == TYPE_INT) {
+                    left = LLVMBuildSIToFP(builder, left, LLVMFloatType(), "int_to_float_left");
+                }
+                if (right_type == TYPE_INT) {
+                    right = LLVMBuildSIToFP(builder, right, LLVMFloatType(), "int_to_float_right");
+                }
+
+                switch (expr->data.binary_op.operator) {
+                    case PLUS:   return LLVMBuildFAdd(builder, left, right, "fadd");
+                    case MINUS:  return LLVMBuildFSub(builder, left, right, "fsub");
+                    case TIMES:  return LLVMBuildFMul(builder, left, right, "fmul");
+                    case DIVIDE: return LLVMBuildFDiv(builder, left, right, "fdiv");
                     default:     return NULL;
                 }
             }
@@ -279,6 +341,8 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
             LLVMValueRef operand = generate_expression_code(expr->data.unary_op.operand, symbol_table);
             if (!operand) return NULL;
 
+            printf("Unary op: %d\n", expr->data.unary_op.operator);
+
             DataType operand_type = get_expression_type(expr->data.unary_op.operand, symbol_table);
 
             switch (expr->data.unary_op.operator) {
@@ -289,7 +353,15 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
                         return LLVMBuildFNeg(builder, operand, "fneg");
                     break;
                 case NOT:
-                    return LLVMBuildNot(builder, operand, "not");
+                    printf("NOT operator\n");
+                    // For NOT, ensure operand is boolean (i1)
+                    if (LLVMGetTypeKind(LLVMTypeOf(operand)) != LLVMIntegerTypeKind ||
+                        LLVMGetIntTypeWidth(LLVMTypeOf(operand)) != 1) {
+                        printf("Converting operand to boolean for NOT\n");
+                        operand = LLVMBuildICmp(builder, LLVMIntNE, operand,
+                                LLVMConstInt(LLVMTypeOf(operand), 0, 0), "to_bool");
+                    }
+                    return LLVMBuildNot(builder, operand, "logical_not");
                 default:
                     return NULL;
             }
@@ -1074,13 +1146,19 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
         }
 
         case CMD_IF: {
+            if_counter++;
             // Generate the condition
             LLVMValueRef condition = generate_expression_code(cmd->data.if_cmd.condition, symbol_table);
             if (!condition) break;
 
             // Create basic blocks for then and continue
-            LLVMBasicBlockRef then_block = LLVMAppendBasicBlock(main_function, "then");
-            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(main_function, "continue");
+            char then_block_name[20];
+            snprintf(then_block_name, sizeof(then_block_name), "then_%d", if_counter);
+            LLVMBasicBlockRef then_block = LLVMAppendBasicBlock(main_function, then_block_name);
+
+            char continue_block_name[20];
+            snprintf(continue_block_name, sizeof(continue_block_name), "continue_%d", if_counter);
+            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(main_function, continue_block_name);
 
             // Create conditional branch
             LLVMBuildCondBr(builder, condition, then_block, continue_block);
@@ -1099,14 +1177,22 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
         }
 
         case CMD_IF_ELSE: {
+            if_counter++;
             // Generate the condition
             LLVMValueRef condition = generate_expression_code(cmd->data.if_else_cmd.condition, symbol_table);
             if (!condition) break;
 
             // Create basic blocks for then, else, and continue
-            LLVMBasicBlockRef then_block = LLVMAppendBasicBlock(main_function, "then");
-            LLVMBasicBlockRef else_block = LLVMAppendBasicBlock(main_function, "else");
-            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(main_function, "continue");
+            char then_block_name[20];
+            snprintf(then_block_name, sizeof(then_block_name), "then_%d", if_counter);
+            char else_block_name[20];
+            snprintf(else_block_name, sizeof(else_block_name), "else_%d", if_counter);
+            char continue_block_name[20];
+            snprintf(continue_block_name, sizeof(continue_block_name), "continue_%d", if_counter);
+
+            LLVMBasicBlockRef then_block = LLVMAppendBasicBlock(main_function, then_block_name);
+            LLVMBasicBlockRef else_block = LLVMAppendBasicBlock(main_function, else_block_name);
+            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(main_function, continue_block_name);
 
             // Create conditional branch
             LLVMBuildCondBr(builder, condition, then_block, else_block);

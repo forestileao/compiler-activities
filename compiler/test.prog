@@ -49,3 +49,8 @@ end
 
 x = (5 + 3) * 2;
 y = x / 4;
+
+write("x = (5 + 3) * 2 is");
+write(x);
+write("x / 4 is:");
+write(y);
