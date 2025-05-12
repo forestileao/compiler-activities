@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
         } else {
             strcpy(output_filename, input_filename);
         }
-        strcat(output_filename, ".c");
+        strcat(output_filename, ".bc");
     }
 
     FILE *input_file = fopen(input_filename, "r");

@@ -1,0 +1,8 @@
+compiler
+*.ll
+*.tab.c
+*.tab.h
+*.yy.c
+*.bc
+*.o
+output
