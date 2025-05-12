@@ -341,6 +341,9 @@ int main(int argc, char *argv[]) {
         // Generate code for the entire command list
         generate_code_for_command_list(cmd_list);
 
+    printf("Generating code for main function\n");
+
+
         // Finalize code generation
         finalize_code_generation();
 

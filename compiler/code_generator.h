@@ -3,6 +3,8 @@
 
 #include "command.h"
 #include "symbol_table.h"
+#include <llvm-c/Core.h>
+#include <llvm-c/BitWriter.h>
 
 // Initialize code generation, opening output file and storing symbol table
 void init_code_generation(const char *output_filename, SymbolTable *symbol_table);
@@ -17,10 +19,11 @@ void generate_code_for_command_list(CommandList *list);
 void generate_code_for_command(Command *cmd, SymbolTable *symbol_table);
 
 // Generate code for an expression
-void generate_expression_code(Expression *expr, SymbolTable *symbol_table);
+LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_table);
+
 
 // Generate code for a float expression
-void generate_float_expression_code(Expression *expr, SymbolTable *symbol_table);
+LLVMValueRef generate_float_expression_code(Expression *expr, SymbolTable *symbol_table);
 
 // Get the data type of an expression
 DataType get_expression_type(Expression *expr, SymbolTable *symbol_table);
