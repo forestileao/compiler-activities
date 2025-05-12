@@ -30,7 +30,10 @@ write(x);
 write("Hello, world!");
 
 if x < 10 then
+    write("x is less than 10, so we set y to 5");
     y = 5;
+else
+    write("x is greater than or equal to 10");
 end
 
 if (y > 10) and (y < 100000) then
