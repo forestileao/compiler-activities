@@ -141,9 +141,15 @@ void finalize_code_generation() {
     builder = NULL;
 }
 
+int isComparisonOp(int operator) {
+    return operator == LT || operator == LE ||
+           operator == GT || operator == GE ||
+           operator == EQUAL || operator == NEQUAL;
+}
+
 LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_table) {
     if (!expr || !builder) return NULL;
-
+    printf("Generating code for expression of type %d\n", expr->type);
     switch (expr->type) {
         case EXPR_VAR: {
             LLVMValueRef var_alloca = get_value(expr->data.var_name);
@@ -173,8 +179,12 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
 
             if (!left || !right) return NULL;
 
+            printf("left: %s, right: %s\n", LLVMPrintValueToString(left), LLVMPrintValueToString(right));
+
             DataType left_type = get_expression_type(expr->data.binary_op.left, symbol_table);
             DataType right_type = get_expression_type(expr->data.binary_op.right, symbol_table);
+
+            printf("left_type: %d, right_type: %d\n", left_type, right_type);
 
             if (expr->data.binary_op.operator == AND || expr->data.binary_op.operator == OR) {
                 if (LLVMGetTypeKind(LLVMTypeOf(left)) != LLVMIntegerTypeKind ||
@@ -196,7 +206,7 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
                 }
             }
 
-            if (expr->data.binary_op.operator >= LT && expr->data.binary_op.operator <= NEQUAL) {
+            if (isComparisonOp(expr->data.binary_op.operator)) {
                 if (left_type == TYPE_INT && right_type == TYPE_INT) {
                     switch (expr->data.binary_op.operator) {
                         case LT:     return LLVMBuildICmp(builder, LLVMIntSLT, left, right, "lt");
