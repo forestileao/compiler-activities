@@ -116,6 +116,21 @@ Command* create_write_command(Expression *expr, char *string_literal, int line) 
     return cmd;
 }
 
+Command* create_while_command(Expression *condition, CommandList *while_block, int line) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_WHILE;
+    cmd->line_number = line;
+    cmd->data.while_cmd.condition = condition;
+    cmd->data.while_cmd.while_block = while_block;
+    cmd->next = NULL;
+
+    return cmd;
+}
+
 Command* create_if_command(Expression *condition, CommandList *then_block, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
@@ -288,6 +303,10 @@ void free_command(Command *cmd) {
             if (cmd->data.write.expr) free_expression(cmd->data.write.expr);
             if (cmd->data.write.string_literal) free(cmd->data.write.string_literal);
             break;
+        case CMD_WHILE:
+            free_expression(cmd->data.while_cmd.condition);
+            free_command_list(cmd->data.while_cmd.while_block);
+            break;
         case CMD_IF:
             free_expression(cmd->data.if_cmd.condition);
             free_command_list(cmd->data.if_cmd.then_block);
@@ -387,6 +406,13 @@ void print_command(Command *cmd, int indent) {
                 printf("Write Expression:\n");
                 print_expression(cmd->data.write.expr, indent + 2);
             }
+            break;
+        case CMD_WHILE:
+            printf("While Statement\n");
+            printf("%sCondition:\n", indent_str);
+            print_expression(cmd->data.while_cmd.condition, indent + 2);
+            printf("%sWhile Block:\n", indent_str);
+            print_command_list_indented(cmd->data.while_cmd.while_block, indent + 2);
             break;
         case CMD_IF:
             printf("If Statement\n");
@@ -727,6 +753,16 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                 }
             }
             break;
+
+        case CMD_WHILE: {
+            int condition = evaluate_expression(cmd->data.while_cmd.condition, symbol_table);
+            while (condition) {
+                execute_command_list(cmd->data.while_cmd.while_block);
+                condition = evaluate_expression(cmd->data.while_cmd.condition, symbol_table);
+            }
+            break;
+        }
+
         case CMD_IF: {
             int condition = evaluate_expression(cmd->data.if_cmd.condition, symbol_table);
             if (condition) {

@@ -899,6 +899,36 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             break;
         }
 
+        case CMD_WHILE: {
+            char cond_block_name[20];
+            snprintf(cond_block_name, sizeof(cond_block_name), "cond_%d", if_counter);
+            LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(main_function, cond_block_name);
+
+            char while_block_name[20];
+            snprintf(while_block_name, sizeof(while_block_name), "while_%d", if_counter);
+            LLVMBasicBlockRef while_block = LLVMAppendBasicBlock(main_function, while_block_name);
+
+            char continue_block_name[20];
+            snprintf(continue_block_name, sizeof(continue_block_name), "continue_%d", if_counter);
+            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(main_function, continue_block_name);
+
+            LLVMBuildBr(builder, cond_block);
+
+            LLVMPositionBuilderAtEnd(builder, cond_block);
+            LLVMValueRef condition = generate_expression_code(cmd->data.while_cmd.condition, symbol_table);
+            if (!condition) break;
+            LLVMBuildCondBr(builder, condition, while_block, continue_block);
+
+            LLVMPositionBuilderAtEnd(builder, while_block);
+            generate_code_for_command_list(cmd->data.while_cmd.while_block);
+            if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+                LLVMBuildBr(builder, cond_block);
+            }
+
+            LLVMPositionBuilderAtEnd(builder, continue_block);
+            break;
+        }
+
         case CMD_IF: {
             if_counter++;
             LLVMValueRef condition = generate_expression_code(cmd->data.if_cmd.condition, symbol_table);

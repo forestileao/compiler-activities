@@ -24,6 +24,13 @@ write(y);
 
 read(x);
 
+int z;
+z = x;
+while z > 0
+    write(z);
+    z = z - 1;
+end
+
 write("x is: ");
 write(x);
 

@@ -32,7 +32,7 @@ int yyerror(char *s);
 %token <ival> NUMBER
 %token <fval> FLOAT_NUMBER
 %token <cval> CHAR_LITERAL
-%token INT FLOAT CHAR BOOL TRUE FALSE IF THEN ELSE END
+%token INT FLOAT CHAR BOOL TRUE FALSE WHILE IF THEN ELSE END
 %token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 
@@ -50,11 +50,26 @@ block	: declaration
         ;
 
 declaration	: cond_decl
+            | while_decl
             | atrib_decl
             | read_decl
             | write_decl
             | var_decl
             ;
+
+while_decl  : WHILE exp
+            {
+                last_condition = $2;
+                push_block(block_stack, current_block);
+                current_block = create_sub_command_list(cmd_list);
+            }
+            block END
+            {
+                Command *while_cmd = create_while_command(last_condition, current_block, line_number);
+
+                current_block = pop_block(block_stack);
+                add_command(current_block, while_cmd);
+            }
 
 if_part     : IF exp THEN
             {

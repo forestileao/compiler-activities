@@ -14,6 +14,7 @@ true						return TRUE;
 false						return FALSE;
 bool            return BOOL;
 
+while           return WHILE;
 if							return IF;
 then						return THEN;
 else						return ELSE;
