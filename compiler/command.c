@@ -864,7 +864,7 @@ Expression *pop_condition(ConditionStack *stack) {
     }
 
     ConditionStackNode *temp = stack->top;
-    CommandList *condition = temp->condition;
+    Expression *condition = temp->condition;
     stack->top = temp->next;
     free(temp);
     return condition;
