@@ -112,12 +112,26 @@ typedef struct {
     BlockStackNode *top;
 } BlockStack;
 
+typedef struct ConditionStackNode {
+    Expression *condition;
+    struct ConditionStackNode *next;
+} ConditionStackNode;
+
+typedef struct {
+    ConditionStackNode *top;
+} ConditionStack;
+
 void panic(const char *format, ...);
 
 BlockStack *create_block_stack();
 void push_block(BlockStack *stack, CommandList *block);
 CommandList *pop_block(BlockStack *stack);
 void free_block_stack(BlockStack *stack);
+
+ConditionStack *create_condition_stack();
+void push_condition(ConditionStack *stack, Expression *condition);
+Expression *pop_condition(ConditionStack *stack);
+void free_condition_stack(ConditionStack *stack);
 
 CommandList* create_command_list(SymbolTable *symbol_table);
 void free_command_list(CommandList *list);

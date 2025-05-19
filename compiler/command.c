@@ -837,3 +837,44 @@ void free_block_stack(BlockStack *stack) {
     }
     free(stack);
 }
+
+ConditionStack *create_condition_stack() {
+    ConditionStack *stack = (ConditionStack *)malloc(sizeof(ConditionStack));
+    if (stack == NULL) {
+        panic("Memory allocation error\n");
+    }
+    stack->top = NULL;
+    return stack;
+}
+
+void push_condition(ConditionStack *stack, Expression *condition) {
+    ConditionStackNode *node = (ConditionStackNode *)malloc(sizeof(ConditionStackNode));
+    if (node == NULL) {
+        panic("Memory allocation error\n");
+    }
+    node->condition = condition;
+    node->next = stack->top;
+    stack->top = node;
+}
+
+Expression *pop_condition(ConditionStack *stack) {
+    if (stack->top == NULL) {
+        panic("Error: Condition stack underflow\n");
+        return NULL;
+    }
+
+    ConditionStackNode *temp = stack->top;
+    CommandList *condition = temp->condition;
+    stack->top = temp->next;
+    free(temp);
+    return condition;
+}
+
+void free_condition_stack(ConditionStack *stack) {
+    while (stack->top != NULL) {
+        ConditionStackNode *temp = stack->top;
+        stack->top = temp->next;
+        free(temp);
+    }
+    free(stack);
+}

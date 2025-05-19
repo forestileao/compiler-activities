@@ -900,6 +900,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
         }
 
         case CMD_WHILE: {
+            if_counter++;
             char cond_block_name[20];
             snprintf(cond_block_name, sizeof(cond_block_name), "cond_%d", if_counter);
             LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(main_function, cond_block_name);

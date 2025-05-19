@@ -13,7 +13,8 @@ SymbolTable *symbol_table;
 CommandList *cmd_list;
 CommandList *current_block;
 BlockStack *block_stack;
-Expression *last_condition;
+ConditionStack *condition_stack;
+Expression *current_condition;
 
 int yylex(void);
 int yyerror(char *s);
@@ -59,13 +60,14 @@ declaration	: cond_decl
 
 while_decl  : WHILE exp
             {
-                last_condition = $2;
+                push_condition(condition_stack, $2);
                 push_block(block_stack, current_block);
                 current_block = create_sub_command_list(cmd_list);
             }
             block END
             {
-                Command *while_cmd = create_while_command(last_condition, current_block, line_number);
+                current_condition = pop_condition(condition_stack);
+                Command *while_cmd = create_while_command(current_condition, current_block, line_number);
 
                 current_block = pop_block(block_stack);
                 add_command(current_block, while_cmd);
@@ -73,8 +75,8 @@ while_decl  : WHILE exp
 
 if_part     : IF exp THEN
             {
-                last_condition = $2;
                 push_block(block_stack, current_block);
+                push_condition(condition_stack, $2);
 
                 $$ = create_sub_command_list(cmd_list);
                 current_block = $$;
@@ -83,7 +85,8 @@ if_part     : IF exp THEN
 
 cond_decl   : if_part block END
             {
-                Command *if_cmd = create_if_command(last_condition, $1, line_number);
+                current_condition = pop_condition(condition_stack);
+                Command *if_cmd = create_if_command(current_condition, $1, line_number);
 
                 current_block = pop_block(block_stack);
                 add_command(current_block, if_cmd);
@@ -96,7 +99,8 @@ cond_decl   : if_part block END
             }
             block END
             {
-                Command *if_else_cmd = create_if_else_command(last_condition, $1, current_block, line_number);
+                current_condition = pop_condition(condition_stack);
+                Command *if_else_cmd = create_if_else_command(current_condition, $1, current_block, line_number);
 
                 current_block = pop_block(block_stack);
                 add_command(current_block, if_else_cmd);
@@ -341,6 +345,7 @@ int main(int argc, char *argv[]) {
     symbol_table = create_symbol_table();
     cmd_list = create_command_list(symbol_table);
     block_stack = create_block_stack();
+    condition_stack = create_condition_stack();
 
     int parse_result = yyparse();
     fclose(input_file);

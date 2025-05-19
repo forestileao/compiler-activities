@@ -17,7 +17,7 @@ else
 end
 
 x = 10;
-y = x + 120.5;
+y = x + 80;
 
 write("y is: ");
 write(y);
@@ -29,6 +29,9 @@ z = x;
 while z > 0
     write(z);
     z = z - 1;
+    if z == 1 then
+        write("Ultimo");
+    end
 end
 
 write("x is: ");
