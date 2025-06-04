@@ -22,6 +22,161 @@ void panic(const char *format, ...) {
     exit(1);
 }
 
+// Function table management
+FunctionTable *create_function_table() {
+    FunctionTable *table = (FunctionTable*) malloc(sizeof(FunctionTable));
+    if (table == NULL) {
+        panic("Error: Memory allocation failed for function table\n");
+    }
+    table->head = NULL;
+    table->size = 0;
+    return table;
+}
+
+void insert_function(FunctionTable *table, const char *name, Parameter *params,
+                    DataType return_type, CommandList *body) {
+    Function *func = (Function*) malloc(sizeof(Function));
+    if (func == NULL) {
+        panic("Error: Memory allocation failed for function\n");
+    }
+
+    func->name = strdup(name);
+    func->params = params;
+    func->return_type = return_type;
+    func->body = body;
+    func->next = table->head;
+
+    table->head = func;
+    table->size++;
+}
+
+Function *lookup_function(FunctionTable *table, const char *name) {
+    Function *current = table->head;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+void print_function_table(FunctionTable *table) {
+    printf("\n===== FUNCTION TABLE =====\n");
+    Function *current = table->head;
+    while (current != NULL) {
+        printf("Function: %s -> %s\n", current->name,
+               data_type_to_string(current->return_type));
+
+        printf("  Parameters: ");
+        Parameter *param = current->params;
+        if (param == NULL) {
+            printf("none");
+        } else {
+            while (param != NULL) {
+                printf("%s %s", data_type_to_string(param->type), param->name);
+                param = param->next;
+                if (param != NULL) printf(", ");
+            }
+        }
+        printf("\n");
+
+        current = current->next;
+    }
+    printf("============================\n");
+}
+
+void free_function_table(FunctionTable *table) {
+    Function *current = table->head;
+    while (current != NULL) {
+        Function *next = current->next;
+        free(current->name);
+        free_parameter(current->params);
+        free_command_list(current->body);
+        free(current);
+        current = next;
+    }
+    free(table);
+}
+
+// Parameter management
+Parameter *create_parameter(char *name, DataType type) {
+    Parameter *param = (Parameter*) malloc(sizeof(Parameter));
+    if (param == NULL) {
+        panic("Error: Memory allocation failed for parameter\n");
+    }
+
+    param->name = strdup(name);
+    param->type = type;
+    param->next = NULL;
+
+    return param;
+}
+
+void add_parameter(Parameter **head, Parameter *param) {
+    if (*head == NULL) {
+        *head = param;
+    } else {
+        Parameter *current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = param;
+    }
+}
+
+void free_parameter(Parameter *param) {
+    while (param != NULL) {
+        Parameter *next = param->next;
+        free(param->name);
+        free(param);
+        param = next;
+    }
+}
+
+// Expression list management
+ExpressionList *create_expression_list() {
+    ExpressionList *list = (ExpressionList*) malloc(sizeof(ExpressionList));
+    if (list == NULL) {
+        panic("Error: Memory allocation failed for expression list\n");
+    }
+    list->expr = NULL;
+    list->next = NULL;
+    return list;
+}
+
+void add_expression_to_list(ExpressionList **head, Expression *expr) {
+    ExpressionList *new_node = (ExpressionList*) malloc(sizeof(ExpressionList));
+    if (new_node == NULL) {
+        panic("Error: Memory allocation failed for expression list node\n");
+    }
+
+    new_node->expr = expr;
+    new_node->next = NULL;
+
+    if (*head == NULL || (*head)->expr == NULL) {
+        if (*head != NULL) {
+            free(*head);
+        }
+        *head = new_node;
+    } else {
+        ExpressionList *current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = new_node;
+    }
+}
+
+void free_expression_list(ExpressionList *list) {
+    while (list != NULL) {
+        ExpressionList *next = list->next;
+        free_expression(list->expr);
+        free(list);
+        list = next;
+    }
+}
+
 CommandList* create_command_list(SymbolTable *symbol_table) {
     CommandList *list = (CommandList*) malloc(sizeof(CommandList));
     if (list == NULL) {
@@ -176,6 +331,37 @@ Command* create_expression_command(Expression *expr, int line) {
     return cmd;
 }
 
+Command* create_func_def_command(char *name, Parameter *params, DataType return_type, CommandList *body, int line) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_FUNC_DEF;
+    cmd->line_number = line;
+    cmd->data.func_def.name = strdup(name);
+    cmd->data.func_def.params = params;
+    cmd->data.func_def.return_type = return_type;
+    cmd->data.func_def.body = body;
+    cmd->next = NULL;
+
+    return cmd;
+}
+
+Command* create_return_command(Expression *return_value, int line) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_RETURN;
+    cmd->line_number = line;
+    cmd->data.return_cmd.return_value = return_value;
+    cmd->next = NULL;
+
+    return cmd;
+}
+
 Expression* create_var_expression(char *name) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
@@ -211,7 +397,6 @@ Expression* create_float_literal_expression(float value) {
 
     return expr;
 }
-
 
 Expression* create_char_literal_expression(char value) {
     Expression *expr = (Expression*) malloc(sizeof(Expression));
@@ -264,6 +449,19 @@ Expression* create_unary_op_expression(int operator, Expression *operand) {
     return expr;
 }
 
+Expression* create_func_call_expression(char *func_name, ExpressionList *args) {
+    Expression *expr = (Expression*) malloc(sizeof(Expression));
+    if (expr == NULL) {
+        panic("Error: Memory allocation failed for expression\n");
+    }
+
+    expr->type = EXPR_FUNC_CALL;
+    expr->data.func_call.func_name = strdup(func_name);
+    expr->data.func_call.args = args;
+
+    return expr;
+}
+
 void free_expression(Expression *expr) {
     if (expr == NULL) return;
 
@@ -277,6 +475,10 @@ void free_expression(Expression *expr) {
             break;
         case EXPR_UNARY_OP:
             free_expression(expr->data.unary_op.operand);
+            break;
+        case EXPR_FUNC_CALL:
+            free(expr->data.func_call.func_name);
+            free_expression_list(expr->data.func_call.args);
             break;
         default:
             break;
@@ -318,6 +520,15 @@ void free_command(Command *cmd) {
             break;
         case CMD_EXPRESSION:
             free_expression(cmd->data.expression.expr);
+            break;
+        case CMD_FUNC_DEF:
+            free(cmd->data.func_def.name);
+            free_parameter(cmd->data.func_def.params);
+            free_command_list(cmd->data.func_def.body);
+            break;
+        case CMD_RETURN:
+            if (cmd->data.return_cmd.return_value)
+                free_expression(cmd->data.return_cmd.return_value);
             break;
     }
 
@@ -372,6 +583,15 @@ void print_expression(Expression *expr, int indent) {
             printf("%sUnary Operation: %d\n", indent_str, expr->data.unary_op.operator);
             printf("%sOperand:\n", indent_str);
             print_expression(expr->data.unary_op.operand, indent + 2);
+            break;
+        case EXPR_FUNC_CALL:
+            printf("%sFunction Call: %s\n", indent_str, expr->data.func_call.func_name);
+            printf("%sArguments:\n", indent_str);
+            ExpressionList *arg = expr->data.func_call.args;
+            while (arg != NULL) {
+                print_expression(arg->expr, indent + 2);
+                arg = arg->next;
+            }
             break;
     }
 }
@@ -433,6 +653,27 @@ void print_command(Command *cmd, int indent) {
         case CMD_EXPRESSION:
             printf("Expression:\n");
             print_expression(cmd->data.expression.expr, indent + 2);
+            break;
+        case CMD_FUNC_DEF:
+            printf("Function Definition: %s -> %s\n",
+                   cmd->data.func_def.name,
+                   data_type_to_string(cmd->data.func_def.return_type));
+            printf("%sParameters:\n", indent_str);
+            Parameter *param = cmd->data.func_def.params;
+            while (param != NULL) {
+                printf("%s  %s %s\n", indent_str,
+                       data_type_to_string(param->type), param->name);
+                param = param->next;
+            }
+            printf("%sBody:\n", indent_str);
+            print_command_list_indented(cmd->data.func_def.body, indent + 2);
+            break;
+        case CMD_RETURN:
+            printf("Return Statement\n");
+            if (cmd->data.return_cmd.return_value) {
+                printf("%sReturn Value:\n", indent_str);
+                print_expression(cmd->data.return_cmd.return_value, indent + 2);
+            }
             break;
     }
 }
@@ -531,6 +772,10 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table) {
                 default:    return 0;
             }
         }
+        case EXPR_FUNC_CALL:
+            // For now, just return 0 for function calls in interpreter mode
+            printf("Warning: Function calls not yet supported in interpreter mode\n");
+            return 0;
         default:
             return 0;
     }
@@ -607,6 +852,10 @@ float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table) {
                 default:    return 0.0f;
             }
         }
+        case EXPR_FUNC_CALL:
+            // For now, just return 0 for function calls in interpreter mode
+            printf("Warning: Function calls not yet supported in interpreter mode\n");
+            return 0.0f;
         default:
             return 0.0f;
     }
@@ -783,6 +1032,20 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
 
         case CMD_EXPRESSION:
             evaluate_expression(cmd->data.expression.expr, symbol_table);
+            break;
+
+        case CMD_FUNC_DEF:
+            // Function definitions are handled during parsing, not execution
+            printf("Function '%s' defined\n", cmd->data.func_def.name);
+            break;
+
+        case CMD_RETURN:
+            // Return statements would need special handling in a full interpreter
+            printf("Return statement executed\n");
+            if (cmd->data.return_cmd.return_value) {
+                int value = evaluate_expression(cmd->data.return_cmd.return_value, symbol_table);
+                printf("Return value: %d\n", value);
+            }
             break;
     }
 }

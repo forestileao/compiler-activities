@@ -1,0 +1,37 @@
+func soma(int a, int b) -> int
+    int resultado;
+    resultado = a + b;
+    return resultado;
+end
+
+func multiplicar(int x, int y) -> int
+    return x * y;
+end
+
+func saudacao() -> int
+    write("Olá, mundo das funções!");
+    return 0;
+end
+
+int num1;
+int num2;
+int resultadosoma;
+int resultadomult;
+
+num1 = 10;
+num2 = 5;
+
+resultadosoma = soma(num1, num2);
+resultadomult = multiplicar(num1, num2);
+
+write("Números: ");
+write(num1);
+write(num2);
+
+write("Soma: ");
+write(resultadosoma);
+
+write("Multiplicação: ");
+write(resultadomult);
+
+saudacao();

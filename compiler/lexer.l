@@ -20,6 +20,9 @@ then						return THEN;
 else						return ELSE;
 end							return END;
 
+func            return FUNC;
+return          return RETURN;
+
 write						return WRITE;
 read						return READ;
 
@@ -27,9 +30,11 @@ read						return READ;
 "and"           return AND;
 "not"           return NOT;
 
+"->"            return ARROW;
+
 \'[^']\'					        { yylval.cval = yytext[1]; return CHAR_LITERAL;}
 \"([^"]*?)\"					    { yytext[yyleng-1] = '\0'; yylval.sval = strdup(yytext+1); return STRING;}
-[a-zA-Z]([a-zA-Z0-9\-])*	{ yylval.sval = strdup(yytext); return ID;}
+[a-zA-Z_]([a-zA-Z0-9_\-])*	{ yylval.sval = strdup(yytext); return ID;}
 
 [0-9]+  {
   yylval.ival = atoi(yytext);
@@ -57,6 +62,7 @@ read						return READ;
 ";"							return SEMICOLON;
 "{"							return LB;
 "}"							return RB;
+","             return COMMA;
 
 [\t\f " "]					;
 

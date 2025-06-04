@@ -10,6 +10,7 @@ extern int line_number;
 extern FILE *yyin;
 
 SymbolTable *symbol_table;
+FunctionTable *function_table;
 CommandList *cmd_list;
 CommandList *current_block;
 BlockStack *block_stack;
@@ -27,6 +28,9 @@ int yyerror(char *s);
     float fval;
     struct Expression *expr;
     struct CommandList *block;
+    struct Parameter *param;
+    struct ExpressionList *expr_list;
+    int dtype;
 }
 
 %token <sval> ID STRING
@@ -36,26 +40,122 @@ int yyerror(char *s);
 %token INT FLOAT CHAR BOOL TRUE FALSE WHILE IF THEN ELSE END
 %token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
+%token FUNC RETURN ARROW COMMA
 
 %type <expr> exp exp_logic and_exp not_exp rel_exp exp_simple term factor
 %type <ival> comp_op sum
 %type <block> if_part
+%type <param> parameter_list parameter
+%type <expr_list> argument_list
+%type <dtype> type
 
 %%
 
-program	: { current_block = cmd_list; } block
+program : { current_block = cmd_list; } declarations
         ;
 
-block	: declaration
-        | block declaration
+declarations : declaration
+             | declarations declaration
+             ;
+
+declaration : func_decl
+            | block_item
+            ;
+
+func_decl : FUNC ID LPAREN parameter_list RPAREN ARROW type
+          {
+              push_block(block_stack, current_block);
+              current_block = create_sub_command_list(cmd_list);
+          }
+          block END
+          {
+              CommandList *func_body = current_block;
+              current_block = pop_block(block_stack);
+
+              Command *func_cmd = create_func_def_command($2, $4, $7, func_body, line_number);
+              add_command(current_block, func_cmd);
+              free($2);
+          }
+        | FUNC ID LPAREN RPAREN ARROW type
+          {
+              push_block(block_stack, current_block);
+              current_block = create_sub_command_list(cmd_list);
+          }
+          block END
+          {
+              CommandList *func_body = current_block;
+              current_block = pop_block(block_stack);
+
+              Command *func_cmd = create_func_def_command($2, NULL, $6, func_body, line_number);
+              add_command(current_block, func_cmd);
+              free($2);
+          }
         ;
 
-declaration	: cond_decl
-            | while_decl
-            | atrib_decl
-            | read_decl
-            | write_decl
-            | var_decl
+func_call_stmt : ID LPAREN argument_list RPAREN SEMICOLON
+               {
+                   Expression *call_expr = create_func_call_expression($1, $3);
+                   Command *cmd = create_expression_command(call_expr, line_number);
+                   add_command(current_block, cmd);
+                   free($1);
+               }
+               | ID LPAREN RPAREN SEMICOLON
+               {
+                   Expression *call_expr = create_func_call_expression($1, NULL);
+                   Command *cmd = create_expression_command(call_expr, line_number);
+                   add_command(current_block, cmd);
+                   free($1);
+               }
+               ;
+
+parameter_list : parameter
+               {
+                   $$ = $1;
+               }
+               | parameter_list COMMA parameter
+               {
+                   add_parameter(&$1, $3);
+                   $$ = $1;
+               }
+               ;
+
+parameter : type ID
+          {
+              $$ = create_parameter($2, $1);
+              free($2);
+          }
+          ;
+
+type : INT    { $$ = TYPE_INT; }
+     | FLOAT  { $$ = TYPE_FLOAT; }
+     | CHAR   { $$ = TYPE_CHAR; }
+     | BOOL   { $$ = TYPE_BOOL; }
+     ;
+
+block : block_item
+      | block block_item
+      ;
+
+block_item : cond_decl
+           | while_decl
+           | atrib_decl
+           | read_decl
+           | write_decl
+           | var_decl
+           | return_stmt
+           | func_call_stmt
+           ;
+
+return_stmt : RETURN exp SEMICOLON
+            {
+                Command *cmd = create_return_command($2, line_number);
+                add_command(current_block, cmd);
+            }
+            | RETURN SEMICOLON
+            {
+                Command *cmd = create_return_command(NULL, line_number);
+                add_command(current_block, cmd);
+            }
             ;
 
 while_decl  : WHILE exp
@@ -133,56 +233,61 @@ var_decl : INT ID SEMICOLON
         }
        ;
 
-atrib_decl	: ID ASSIGNMENT exp SEMICOLON
-            {
-                Command *cmd = create_assign_command($1, $3, line_number);
-                add_command(current_block, cmd);
-                free($1);
-            }
-            ;
+atrib_decl : ID ASSIGNMENT exp SEMICOLON
+           {
+               Command *cmd = create_assign_command($1, $3, line_number);
+               add_command(current_block, cmd);
+               free($1);
+           }
+           ;
 
-read_decl	: READ LPAREN ID RPAREN SEMICOLON
-            {
-                Command *cmd = create_read_command($3, line_number);
-                add_command(current_block, cmd);
-                free($3);
-            }
-            ;
+read_decl : READ LPAREN ID RPAREN SEMICOLON
+          {
+              Command *cmd = create_read_command($3, line_number);
+              add_command(current_block, cmd);
+              free($3);
+          }
+          ;
 
-write_decl	: WRITE LPAREN ID RPAREN SEMICOLON
-            {
-                Expression *expr = create_var_expression($3);
-                Command *cmd = create_write_command(expr, NULL, line_number);
-                add_command(current_block, cmd);
-                free($3);
-            }
-            | WRITE LPAREN STRING RPAREN SEMICOLON
-            {
-                Command *cmd = create_write_command(NULL, $3, line_number);
-                add_command(current_block, cmd);
-                free($3);
-            }
-            | WRITE LPAREN CHAR_LITERAL RPAREN SEMICOLON
-            {
-                char str[2] = {$3, '\0'};
-                Command *cmd = create_write_command(NULL, str, line_number);
-                add_command(current_block, cmd);
-            }
-            | WRITE LPAREN NUMBER RPAREN SEMICOLON
-            {
-                char str[1000000];
-                sprintf(str, "%d", $3);
-                Command *cmd = create_write_command(NULL, str, line_number);
-                add_command(current_block, cmd);
-            }
-            | WRITE LPAREN FLOAT_NUMBER RPAREN SEMICOLON
-            {
-                char str[1000000];
-                sprintf(str, "%f", $3);
-                Command *cmd = create_write_command(NULL, str, line_number);
-                add_command(current_block, cmd);
-            }
-            ;
+write_decl : WRITE LPAREN ID RPAREN SEMICOLON
+           {
+               Expression *expr = create_var_expression($3);
+               Command *cmd = create_write_command(expr, NULL, line_number);
+               add_command(current_block, cmd);
+               free($3);
+           }
+           | WRITE LPAREN STRING RPAREN SEMICOLON
+           {
+               Command *cmd = create_write_command(NULL, $3, line_number);
+               add_command(current_block, cmd);
+               free($3);
+           }
+           | WRITE LPAREN CHAR_LITERAL RPAREN SEMICOLON
+           {
+               char str[2] = {$3, '\0'};
+               Command *cmd = create_write_command(NULL, str, line_number);
+               add_command(current_block, cmd);
+           }
+           | WRITE LPAREN NUMBER RPAREN SEMICOLON
+           {
+               char str[1000000];
+               sprintf(str, "%d", $3);
+               Command *cmd = create_write_command(NULL, str, line_number);
+               add_command(current_block, cmd);
+           }
+           | WRITE LPAREN FLOAT_NUMBER RPAREN SEMICOLON
+           {
+               char str[1000000];
+               sprintf(str, "%f", $3);
+               Command *cmd = create_write_command(NULL, str, line_number);
+               add_command(current_block, cmd);
+           }
+           | WRITE LPAREN exp RPAREN SEMICOLON
+           {
+               Command *cmd = create_write_command($3, NULL, line_number);
+               add_command(current_block, cmd);
+           }
+           ;
 
 exp     : exp_logic
         {
@@ -230,7 +335,7 @@ rel_exp     : rel_exp comp_op exp_simple
             }
             ;
 
-comp_op	: LT    { $$ = LT; }
+comp_op : LT    { $$ = LT; }
         | GT    { $$ = GT; }
         | GE    { $$ = GE; }
         | LE    { $$ = LE; }
@@ -238,64 +343,86 @@ comp_op	: LT    { $$ = LT; }
         | EQUAL { $$ = EQUAL; }
         ;
 
-exp_simple	: exp_simple sum term
-            {
-                $$ = create_binary_op_expression($1, $2, $3);
-            }
-            | term
-            {
-                $$ = $1;
-            }
-            ;
+exp_simple : exp_simple sum term
+           {
+               $$ = create_binary_op_expression($1, $2, $3);
+           }
+           | term
+           {
+               $$ = $1;
+           }
+           ;
 
-sum	: PLUS  { $$ = PLUS; }
+sum : PLUS  { $$ = PLUS; }
     | MINUS { $$ = MINUS; }
     ;
 
-term	: term TIMES factor
-        {
-            $$ = create_binary_op_expression($1, TIMES, $3);
-        }
-        | term DIVIDE factor
-        {
-            $$ = create_binary_op_expression($1, DIVIDE, $3);
-        }
-        | factor
-        {
-            $$ = $1;
-        }
-        ;
+term : term TIMES factor
+     {
+         $$ = create_binary_op_expression($1, TIMES, $3);
+     }
+     | term DIVIDE factor
+     {
+         $$ = create_binary_op_expression($1, DIVIDE, $3);
+     }
+     | factor
+     {
+         $$ = $1;
+     }
+     ;
 
-factor	: LPAREN exp RPAREN
-        {
-            $$ = $2;
-        }
-        | NUMBER
-        {
-            $$ = create_int_literal_expression($1);
-        }
-        | FLOAT_NUMBER
-        {
-            $$ = create_float_literal_expression($1);
-        }
-        | CHAR_LITERAL
-        {
-            $$ = create_char_literal_expression($1);
-        }
-        | ID
-        {
-            $$ = create_var_expression($1);
-            free($1);
-        }
-        | TRUE
-        {
-            $$ = create_bool_literal_expression(1);
-        }
-        | FALSE
-        {
-            $$ = create_bool_literal_expression(0);
-        }
-        ;
+factor : LPAREN exp RPAREN
+       {
+           $$ = $2;
+       }
+       | NUMBER
+       {
+           $$ = create_int_literal_expression($1);
+       }
+       | FLOAT_NUMBER
+       {
+           $$ = create_float_literal_expression($1);
+       }
+       | CHAR_LITERAL
+       {
+           $$ = create_char_literal_expression($1);
+       }
+       | ID
+       {
+           $$ = create_var_expression($1);
+           free($1);
+       }
+       | TRUE
+       {
+           $$ = create_bool_literal_expression(1);
+       }
+       | FALSE
+       {
+           $$ = create_bool_literal_expression(0);
+       }
+       | ID LPAREN argument_list RPAREN
+       {
+           $$ = create_func_call_expression($1, $3);
+           free($1);
+       }
+       | ID LPAREN RPAREN
+       {
+           $$ = create_func_call_expression($1, NULL);
+           free($1);
+       }
+       ;
+
+argument_list : exp
+              {
+                  $$ = create_expression_list();
+                  add_expression_to_list(&$$, $1);
+              }
+              | argument_list COMMA exp
+              {
+                  add_expression_to_list(&$1, $3);
+                  $$ = $1;
+              }
+              ;
 
 %%
 
@@ -343,6 +470,7 @@ int main(int argc, char *argv[]) {
     yyin = input_file;
 
     symbol_table = create_symbol_table();
+    function_table = create_function_table();
     cmd_list = create_command_list(symbol_table);
     block_stack = create_block_stack();
     condition_stack = create_condition_stack();
@@ -354,15 +482,15 @@ int main(int argc, char *argv[]) {
         printf("Parsing successful. Generating code to %s\n", output_filename);
 
         print_symbol_table(symbol_table);
+        print_function_table(function_table);
         print_command_list(cmd_list);
 
-        init_code_generation(output_filename, symbol_table);
+        init_code_generation(output_filename, symbol_table, function_table);
 
         // Generate code for the entire command list
         generate_code_for_command_list(cmd_list);
 
-    printf("Generating code for main function\n");
-
+        printf("Generating code for main function\n");
 
         // Finalize code generation
         finalize_code_generation();
@@ -373,6 +501,7 @@ int main(int argc, char *argv[]) {
     }
 
     free_symbol_table(symbol_table);
+    free_function_table(function_table);
     free_command_list(cmd_list);
     free_block_stack(block_stack);
 

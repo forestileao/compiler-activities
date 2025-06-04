@@ -5,6 +5,7 @@
 #include "inter.tab.h"
 
 struct CommandList;
+struct FunctionDef;
 
 typedef enum {
     CMD_DECLARE_VAR,
@@ -14,8 +15,16 @@ typedef enum {
     CMD_WHILE,
     CMD_IF,
     CMD_IF_ELSE,
-    CMD_EXPRESSION
+    CMD_EXPRESSION,
+    CMD_FUNC_DEF,
+    CMD_RETURN
 } CommandType;
+
+typedef struct Parameter {
+    char *name;
+    DataType type;
+    struct Parameter *next;
+} Parameter;
 
 typedef struct Expression {
     enum {
@@ -25,7 +34,8 @@ typedef struct Expression {
         EXPR_CHAR_LITERAL,
         EXPR_BOOL_LITERAL,
         EXPR_BINARY_OP,
-        EXPR_UNARY_OP
+        EXPR_UNARY_OP,
+        EXPR_FUNC_CALL
     } type;
 
     union {
@@ -45,8 +55,18 @@ typedef struct Expression {
             int operator;
             struct Expression *operand;
         } unary_op;
+
+        struct {
+            char *func_name;
+            struct ExpressionList *args;
+        } func_call;
     } data;
 } Expression;
+
+typedef struct ExpressionList {
+    Expression *expr;
+    struct ExpressionList *next;
+} ExpressionList;
 
 typedef struct Command {
     CommandType type;
@@ -91,6 +111,17 @@ typedef struct Command {
         struct {
             Expression *expr;
         } expression;
+
+        struct {
+            char *name;
+            Parameter *params;
+            DataType return_type;
+            struct CommandList *body;
+        } func_def;
+
+        struct {
+            Expression *return_value;
+        } return_cmd;
     } data;
 
     struct Command *next;
@@ -121,6 +152,19 @@ typedef struct {
     ConditionStackNode *top;
 } ConditionStack;
 
+typedef struct Function {
+    char *name;
+    Parameter *params;
+    DataType return_type;
+    CommandList *body;
+    struct Function *next;
+} Function;
+
+typedef struct FunctionTable {
+    Function *head;
+    int size;
+} FunctionTable;
+
 void panic(const char *format, ...);
 
 BlockStack *create_block_stack();
@@ -132,6 +176,18 @@ ConditionStack *create_condition_stack();
 void push_condition(ConditionStack *stack, Expression *condition);
 Expression *pop_condition(ConditionStack *stack);
 void free_condition_stack(ConditionStack *stack);
+
+FunctionTable *create_function_table();
+void insert_function(FunctionTable *table, const char *name, Parameter *params,
+                    DataType return_type, CommandList *body);
+Function *lookup_function(FunctionTable *table, const char *name);
+void print_function_table(FunctionTable *table);
+void free_function_table(FunctionTable *table);
+
+Parameter *create_parameter(char *name, DataType type);
+void add_parameter(Parameter **head, Parameter *param);
+ExpressionList *create_expression_list();
+void add_expression_to_list(ExpressionList **head, Expression *expr);
 
 CommandList* create_command_list(SymbolTable *symbol_table);
 void free_command_list(CommandList *list);
@@ -146,6 +202,8 @@ Command* create_while_command(Expression *condition, CommandList *while_block, i
 Command* create_if_command(Expression *condition, CommandList *then_block, int line);
 Command* create_if_else_command(Expression *condition, CommandList *then_block, CommandList *else_block, int line);
 Command* create_expression_command(Expression *expr, int line);
+Command* create_func_def_command(char *name, Parameter *params, DataType return_type, CommandList *body, int line);
+Command* create_return_command(Expression *return_value, int line);
 
 Expression* create_var_expression(char *name);
 Expression* create_int_literal_expression(int value);
@@ -154,6 +212,7 @@ Expression* create_bool_literal_expression(int value);
 Expression* create_char_literal_expression(char value);
 Expression* create_binary_op_expression(Expression *left, int operator, Expression *right);
 Expression* create_unary_op_expression(int operator, Expression *operand);
+Expression* create_func_call_expression(char *func_name, ExpressionList *args);
 
 void add_command(CommandList *list, Command *cmd);
 CommandList* create_sub_command_list(CommandList *parent);
@@ -164,5 +223,7 @@ int evaluate_expression(Expression *expr, SymbolTable *symbol_table);
 float evaluate_float_expression(Expression *expr, SymbolTable *symbol_table);
 
 void free_expression(Expression *expr);
+void free_parameter(Parameter *param);
+void free_expression_list(ExpressionList *list);
 
 #endif
