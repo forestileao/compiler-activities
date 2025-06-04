@@ -1,0 +1,28 @@
+func fibonacci(int n) -> int
+    if n <= 1 then
+        return n;
+    end
+
+    return fibonacci(n - 1) + fibonacci(n - 2);
+end
+
+func main_program() -> int
+    int n;
+    int until_num;
+    int fib_result;
+
+    n = 1;
+
+    write("Fibonacci sequence up to: ");
+    read(until_num);
+
+    while n <= until_num
+      fib_result = fibonacci(n);
+      write(fib_result);
+
+      n = n + 1;
+    end
+    return 0;
+end
+
+main_program();

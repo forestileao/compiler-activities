@@ -34,4 +34,7 @@ const char* get_format_for_type(DataType type);
 void generate_function_definitions(CommandList *list);
 LLVMValueRef generate_function_call(const char *func_name, ExpressionList *args, SymbolTable *symbol_table);
 
+DataType llvm_type_to_data_type(LLVMTypeRef llvm_type);
+LLVMTypeRef get_current_function_return_type();
+
 #endif

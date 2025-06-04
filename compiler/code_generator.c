@@ -416,8 +416,12 @@ DataType get_expression_type(Expression *expr, SymbolTable *symbol_table) {
         case EXPR_BOOL_LITERAL:
             return TYPE_BOOL;
         case EXPR_FUNC_CALL: {
-            Function *func = lookup_function(current_function_table, expr->data.func_call.func_name);
-            return func ? func->return_type : TYPE_UNKNOWN;
+            if (current_function && strcmp(expr->data.func_call.func_name, LLVMGetValueName(current_function)) == 0) {
+                LLVMTypeRef return_type = get_current_function_return_type();
+                return llvm_type_to_data_type(return_type);
+            }
+
+            return TYPE_INT;
         }
         case EXPR_BINARY_OP: {
             DataType left_type = get_expression_type(expr->data.binary_op.left, symbol_table);
@@ -457,6 +461,37 @@ DataType get_expression_type(Expression *expr, SymbolTable *symbol_table) {
         default:
             return TYPE_UNKNOWN;
     }
+}
+
+DataType llvm_type_to_data_type(LLVMTypeRef llvm_type) {
+    if (!llvm_type) return TYPE_UNKNOWN;
+
+    LLVMTypeKind kind = LLVMGetTypeKind(llvm_type);
+
+    switch (kind) {
+        case LLVMIntegerTypeKind:
+            if (LLVMGetIntTypeWidth(llvm_type) == 32) return TYPE_INT;
+            if (LLVMGetIntTypeWidth(llvm_type) == 8) return TYPE_CHAR;
+            if (LLVMGetIntTypeWidth(llvm_type) == 1) return TYPE_BOOL;
+            return TYPE_INT;
+        case LLVMFloatTypeKind:
+            return TYPE_FLOAT;
+        case LLVMVoidTypeKind:
+            return TYPE_UNKNOWN;
+        default:
+            return TYPE_UNKNOWN;
+    }
+}
+
+LLVMTypeRef get_current_function_return_type() {
+    if (!current_function) {
+        return NULL;
+    }
+
+    LLVMTypeRef function_type = LLVMGlobalGetValueType(current_function);
+    LLVMTypeRef return_type = LLVMGetReturnType(function_type);
+
+    return return_type;
 }
 
 static LLVMValueRef create_global_variable(const char *name, DataType type) {

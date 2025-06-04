@@ -1,0 +1,314 @@
+func get_board_position(int pos, int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> int
+    if pos == 1 then return b1; end
+    if pos == 2 then return b2; end
+    if pos == 3 then return b3; end
+    if pos == 4 then return b4; end
+    if pos == 5 then return b5; end
+    if pos == 6 then return b6; end
+    if pos == 7 then return b7; end
+    if pos == 8 then return b8; end
+    if pos == 9 then return b9; end
+    return 0;
+end
+
+func print_symbol(int value) -> int
+    if value == 0 then
+        write(" ");
+    else
+        if value == 1 then
+            write("X");
+        else
+            write("O");
+        end
+    end
+    return 0;
+end
+
+func print_game_board(int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> int
+    write("");
+    write("   TIC TAC TOE");
+    write("");
+    write("   1 | 2 | 3");
+    write("   ---------");
+    write("   4 | 5 | 6");
+    write("   ---------");
+    write("   7 | 8 | 9");
+    write("");
+    write("Tabuleiro atual:");
+    write("");
+
+    write("   ");
+    print_symbol(b1);
+    write(" | ");
+    print_symbol(b2);
+    write(" | ");
+    print_symbol(b3);
+    write("");
+
+    write("   ---------");
+
+    write("   ");
+    print_symbol(b4);
+    write(" | ");
+    print_symbol(b5);
+    write(" | ");
+    print_symbol(b6);
+    write("");
+
+    write("   ---------");
+
+    write("   ");
+    print_symbol(b7);
+    write(" | ");
+    print_symbol(b8);
+    write(" | ");
+    print_symbol(b9);
+    write("");
+    write("");
+
+    return 0;
+end
+
+func check_three_equal(int val1, int val2, int val3) -> int
+    if val1 != 0 and val1 == val2 and val2 == val3 then
+        return val1;
+    end
+    return 0;
+end
+
+func check_game_winner(int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> int
+    int result;
+
+    result = check_three_equal(b1, b2, b3);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b4, b5, b6);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b7, b8, b9);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b1, b4, b7);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b2, b5, b8);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b3, b6, b9);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b1, b5, b9);
+    if result != 0 then return result; end
+
+    result = check_three_equal(b3, b5, b7);
+    if result != 0 then return result; end
+
+    return 0;
+end
+
+func is_position_valid(int position, int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> bool
+    if position < 1 or position > 9 then
+        return false;
+    end
+
+    int current_value;
+    current_value = get_board_position(position, b1, b2, b3, b4, b5, b6, b7, b8, b9);
+
+    if current_value != 0 then
+        return false;
+    end
+
+    return true;
+end
+
+func is_game_board_full(int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> bool
+    if b1 != 0 and b2 != 0 and b3 != 0 and b4 != 0 and b5 != 0 and b6 != 0 and b7 != 0 and b8 != 0 and b9 != 0 then
+        return true;
+    end
+    return false;
+end
+
+func get_move_input(int player, int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> int
+    int position;
+    bool valid;
+
+    valid = false;
+
+    while not valid
+        if player == 1 then
+            write("Jogador X, escolha uma posicao (1-9): ");
+        else
+            write("Jogador O, escolha uma posicao (1-9): ");
+        end
+
+        read(position);
+
+        if is_position_valid(position, b1, b2, b3, b4, b5, b6, b7, b8, b9) then
+            valid = true;
+        else
+            write("Movimento invalido! Tente novamente.");
+            write("");
+        end
+    end
+
+    return position;
+end
+
+func announce_winner_player(int winner_player) -> int
+    write("");
+    write("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
+
+    if winner_player == 1 then
+        write("     JOGADOR X VENCEU!");
+    else
+        write("     JOGADOR O VENCEU!");
+    end
+
+    write("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
+    write("");
+    return 0;
+end
+
+func announce_game_tie() -> int
+    write("");
+    write("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
+    write("        EMPATE!");
+    write("   Jogo muito equilibrado!");
+    write("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
+    write("");
+    return 0;
+end
+
+func show_game_instructions() -> int
+    write("");
+    write("📋 COMO JOGAR TIC TAC TOE:");
+    write("");
+    write("• O tabuleiro tem 9 posicoes numeradas de 1 a 9");
+    write("• Jogador X sempre comeca");
+    write("• Digite o numero da posicao onde quer jogar");
+    write("• Ganhe fazendo 3 em linha (horizontal, vertical ou diagonal)");
+    write("• Se o tabuleiro encher sem vencedor, e empate!");
+    write("");
+    write("Posicoes do tabuleiro:");
+    write("   1 | 2 | 3");
+    write("   ---------");
+    write("   4 | 5 | 6");
+    write("   ---------");
+    write("   7 | 8 | 9");
+    write("");
+    return 0;
+end
+
+func ask_new_game() -> bool
+    int choice;
+    write("Deseja jogar novamente?");
+    write("1 = Sim, 0 = Nao");
+    read(choice);
+    return choice == 1;
+end
+
+func play_tic_tac_toe() -> int
+    int move_position;
+    int board1; int board2; int board3;
+    int board4; int board5; int board6;
+    int board7; int board8; int board9;
+
+    int current_player;
+    int game_over;
+    int winner;
+
+    board1 = 0; board2 = 0; board3 = 0;
+    board4 = 0; board5 = 0; board6 = 0;
+    board7 = 0; board8 = 0; board9 = 0;
+    current_player = 1;
+    game_over = 0;
+    winner = 0;
+
+    write("");
+    write("🎮 INICIANDO NOVO JOGO! 🎮");
+
+    while game_over == 0
+        print_game_board(board1, board2, board3, board4, board5, board6, board7, board8, board9);
+        move_position = get_move_input(current_player, board1, board2, board3, board4, board5, board6, board7, board8, board9);
+
+        if move_position == 1 then board1 = current_player; end
+        if move_position == 2 then board2 = current_player; end
+        if move_position == 3 then board3 = current_player; end
+        if move_position == 4 then board4 = current_player; end
+        if move_position == 5 then board5 = current_player; end
+        if move_position == 6 then board6 = current_player; end
+        if move_position == 7 then board7 = current_player; end
+        if move_position == 8 then board8 = current_player; end
+        if move_position == 9 then board9 = current_player; end
+
+        winner = check_game_winner(board1, board2, board3, board4, board5, board6, board7, board8, board9);
+        if winner != 0 then
+            game_over = 1;
+            print_game_board(board1, board2, board3, board4, board5, board6, board7, board8, board9);
+            announce_winner_player(winner);
+        else
+            if is_game_board_full(board1, board2, board3, board4, board5, board6, board7, board8, board9) then
+                game_over = 1;
+                print_game_board(board1, board2, board3, board4, board5, board6, board7, board8, board9);
+                announce_game_tie();
+            else
+                if current_player == 1 then
+                    current_player = 2;
+                else
+                    current_player = 1;
+                end
+            end
+        end
+    end
+
+    return 0;
+end
+
+func main_game_menu() -> int
+    int option;
+    bool playing;
+
+    playing = true;
+
+    write("🎯 TIC TAC TOE GAME 🎯");
+    write("");
+    write("1 - Jogar");
+    write("2 - Instrucoes");
+    write("3 - Sair");
+    write("");
+
+    while playing
+        write("Escolha uma opcao: ");
+        read(option);
+
+        if option == 1 then
+            play_tic_tac_toe();
+
+            if ask_new_game() then
+                write("Preparando novo jogo...");
+            else
+                playing = false;
+                write("Obrigado por jogar! Ate a proxima! 👋");
+            end
+
+        else
+            if option == 2 then
+                show_game_instructions();
+            else
+                if option == 3 then
+                    playing = false;
+                    write("Saindo do jogo... Ate logo! 👋");
+                else
+                    write("Opcao invalida! Tente novamente.");
+                end
+            end
+        end
+
+        write("");
+    end
+
+    return 0;
+end
+
+write("Carregando Tic Tac Toe...");
+main_game_menu();
