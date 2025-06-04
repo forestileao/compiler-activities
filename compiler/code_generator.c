@@ -640,7 +640,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             DataType type = cmd->data.declare_var.data_type;
             LLVMTypeRef llvm_type = get_llvm_type(type);
 
-            if (LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)) == main_function) {
+            if (current_function != main_function) {
                 LLVMValueRef alloca = LLVMBuildAlloca(builder, llvm_type, name);
                 LLVMSetAlignment(alloca, 4);
 
