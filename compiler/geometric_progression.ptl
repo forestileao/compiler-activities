@@ -1,0 +1,84 @@
+int pg[10];
+int validacao[10];
+int soma_pg;
+int termo_inicial;
+int razao;
+
+func preencher_pg(&int pg[10], int a1, int r) -> int
+    int i;
+    int termo;
+    termo = a1;
+    i = 0;
+    while i < 10
+        pg[i] = termo;
+        termo = termo * r;
+        i = i + 1;
+    end
+    return 0;
+end
+
+func copiar_vetor(&int origem[10], &int destino[10]) -> int
+    int i;
+    i = 0;
+    while i < 10
+        destino[i] = origem[i];
+        i = i + 1;
+    end
+    return 0;
+end
+
+func somar_pg(&int pg[10]) -> int
+    int i;
+    int soma;
+    soma = 0;
+    i = 0;
+    while i < 10
+        soma = soma + pg[i];
+        i = i + 1;
+    end
+    return soma;
+end
+
+func calcular_formula_pg(int a1, int r, int n) -> int
+    int pot;
+    int resultado;
+
+    pot = 1;
+    int i;
+    i = 0;
+    while i < n
+        pot = pot * r;
+        i = i + 1;
+    end
+
+    resultado = a1 * (pot - 1) / (r - 1);
+    return resultado;
+end
+
+func imprimir_vetor(&int vetor[10]) -> int
+    int i;
+    i = 0;
+    while i < 10
+        write(vetor[i]);
+        i = i + 1;
+    end
+    return 0;
+end
+
+termo_inicial = 2;
+razao = 3;
+
+preencher_pg(pg, termo_inicial, razao);
+copiar_vetor(pg, validacao);
+
+write("Progressao Geometrica:");
+imprimir_vetor(pg);
+
+soma_pg = somar_pg(pg);
+write("Soma calculada da PG:");
+write(soma_pg);
+
+int soma_formula;
+soma_formula = calcular_formula_pg(termo_inicial, razao, 10);
+write("Soma pela fórmula:");
+write(soma_formula);
