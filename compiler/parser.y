@@ -30,6 +30,7 @@ int yyerror(char *s);
     struct CommandList *block;
     struct Parameter *param;
     struct ExpressionList *expr_list;
+    struct ArrayDimension *array_dim;
     int dtype;
 }
 
@@ -40,13 +41,14 @@ int yyerror(char *s);
 %token INT FLOAT CHAR BOOL TRUE FALSE WHILE IF THEN ELSE END
 %token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
-%token FUNC RETURN ARROW COMMA
+%token FUNC RETURN ARROW COMMA AMPERSAND LBRACKET RBRACKET
 
 %type <expr> exp exp_logic and_exp not_exp rel_exp exp_simple term factor
 %type <ival> comp_op sum
 %type <block> if_part
 %type <param> parameter_list parameter
-%type <expr_list> argument_list
+%type <expr_list> argument_list array_index
+%type <array_dim> array_dimensions
 %type <dtype> type
 
 %%
@@ -121,10 +123,35 @@ parameter_list : parameter
 
 parameter : type ID
           {
-              $$ = create_parameter($2, $1);
+              $$ = create_parameter($2, $1, 0, NULL);
               free($2);
           }
+          | AMPERSAND type ID
+          {
+              $$ = create_parameter($3, $2, 1, NULL);
+              free($3);
+          }
+          | type ID array_dimensions
+          {
+              $$ = create_parameter($2, $1, 0, $3);
+              free($2);
+          }
+          | AMPERSAND type ID array_dimensions
+          {
+              $$ = create_parameter($3, $2, 1, $4);
+              free($3);
+          }
           ;
+
+array_dimensions : LBRACKET NUMBER RBRACKET
+                 {
+                     $$ = create_array_dimension($2, NULL);
+                 }
+                 | LBRACKET NUMBER RBRACKET array_dimensions
+                 {
+                     $$ = create_array_dimension($2, $4);
+                 }
+                 ;
 
 type : INT    { $$ = TYPE_INT; }
      | FLOAT  { $$ = TYPE_FLOAT; }
@@ -209,25 +236,49 @@ cond_decl   : if_part block END
 
 var_decl : INT ID SEMICOLON
          {
-            Command *cmd = create_declare_var_command($2, TYPE_INT, line_number);
+            Command *cmd = create_declare_var_command($2, TYPE_INT, line_number, NULL);
+            add_command(current_block, cmd);
+            free($2);
+         }
+       | INT ID array_dimensions SEMICOLON
+         {
+            Command *cmd = create_declare_var_command($2, TYPE_INT, line_number, $3);
             add_command(current_block, cmd);
             free($2);
          }
        | FLOAT ID SEMICOLON
          {
-            Command *cmd = create_declare_var_command($2, TYPE_FLOAT, line_number);
+            Command *cmd = create_declare_var_command($2, TYPE_FLOAT, line_number, NULL);
+            add_command(current_block, cmd);
+            free($2);
+         }
+       | FLOAT ID array_dimensions SEMICOLON
+         {
+            Command *cmd = create_declare_var_command($2, TYPE_FLOAT, line_number, $3);
             add_command(current_block, cmd);
             free($2);
          }
        | CHAR ID SEMICOLON
          {
-           Command *cmd = create_declare_var_command($2, TYPE_CHAR, line_number);
+           Command *cmd = create_declare_var_command($2, TYPE_CHAR, line_number, NULL);
+           add_command(current_block, cmd);
+           free($2);
+         }
+       | CHAR ID array_dimensions SEMICOLON
+         {
+           Command *cmd = create_declare_var_command($2, TYPE_CHAR, line_number, $3);
            add_command(current_block, cmd);
            free($2);
          }
         | BOOL ID SEMICOLON
         {
-            Command *cmd = create_declare_var_command($2, TYPE_BOOL, line_number);
+            Command *cmd = create_declare_var_command($2, TYPE_BOOL, line_number, NULL);
+            add_command(current_block, cmd);
+            free($2);
+        }
+        | BOOL ID array_dimensions SEMICOLON
+        {
+            Command *cmd = create_declare_var_command($2, TYPE_BOOL, line_number, $3);
             add_command(current_block, cmd);
             free($2);
         }
@@ -235,11 +286,35 @@ var_decl : INT ID SEMICOLON
 
 atrib_decl : ID ASSIGNMENT exp SEMICOLON
            {
-               Command *cmd = create_assign_command($1, $3, line_number);
+               Command *cmd = create_assign_command($1, NULL, $3, line_number);
+               add_command(current_block, cmd);
+               free($1);
+           }
+           | ID array_index ASSIGNMENT exp SEMICOLON
+           {
+               Command *cmd = create_assign_command($1, $2, $4, line_number);
                add_command(current_block, cmd);
                free($1);
            }
            ;
+
+array_index : LBRACKET exp RBRACKET
+            {
+                $$ = create_expression_list();
+                add_expression_to_list(&$$, $2);
+            }
+            | LBRACKET exp RBRACKET array_index
+            {
+                ExpressionList *new_list = create_expression_list();
+                add_expression_to_list(&new_list, $2);
+                ExpressionList *current = new_list;
+                while (current->next != NULL) {
+                    current = current->next;
+                }
+                current->next = $4;
+                $$ = new_list;
+            }
+            ;
 
 read_decl : READ LPAREN ID RPAREN SEMICOLON
           {
@@ -390,6 +465,11 @@ factor : LPAREN exp RPAREN
        | ID
        {
            $$ = create_var_expression($1);
+           free($1);
+       }
+       | ID array_index
+       {
+           $$ = create_array_access_expression($1, $2);
            free($1);
        }
        | TRUE

@@ -99,20 +99,6 @@ void free_function_table(FunctionTable *table) {
     free(table);
 }
 
-// Parameter management
-Parameter *create_parameter(char *name, DataType type) {
-    Parameter *param = (Parameter*) malloc(sizeof(Parameter));
-    if (param == NULL) {
-        panic("Error: Memory allocation failed for parameter\n");
-    }
-
-    param->name = strdup(name);
-    param->type = type;
-    param->next = NULL;
-
-    return param;
-}
-
 void add_parameter(Parameter **head, Parameter *param) {
     if (*head == NULL) {
         *head = param;
@@ -129,6 +115,7 @@ void free_parameter(Parameter *param) {
     while (param != NULL) {
         Parameter *next = param->next;
         free(param->name);
+        free_array_dimension(param->array_dims);
         free(param);
         param = next;
     }
@@ -212,22 +199,7 @@ CommandList* create_sub_command_list(CommandList *parent) {
     return sub_list;
 }
 
-Command* create_declare_var_command(char *name, DataType type, int line) {
-    Command *cmd = (Command*) malloc(sizeof(Command));
-    if (cmd == NULL) {
-        panic("Error: Memory allocation failed for command\n");
-    }
-
-    cmd->type = CMD_DECLARE_VAR;
-    cmd->line_number = line;
-    cmd->data.declare_var.name = strdup(name);
-    cmd->data.declare_var.data_type = type;
-    cmd->next = NULL;
-
-    return cmd;
-}
-
-Command* create_assign_command(char *name, Expression *value, int line) {
+Command* create_assign_command(char *name, ExpressionList *indices, Expression *value, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
         panic("Error: Memory allocation failed for command\n");
@@ -236,6 +208,7 @@ Command* create_assign_command(char *name, Expression *value, int line) {
     cmd->type = CMD_ASSIGN;
     cmd->line_number = line;
     cmd->data.assign.name = strdup(name);
+    cmd->data.assign.indices = indices;
     cmd->data.assign.value = value;
     cmd->next = NULL;
 
@@ -480,6 +453,10 @@ void free_expression(Expression *expr) {
             free(expr->data.func_call.func_name);
             free_expression_list(expr->data.func_call.args);
             break;
+        case EXPR_ARRAY_ACCESS:
+            free(expr->data.array_access.array_name);
+            free_expression_list(expr->data.array_access.indices);
+            break;
         default:
             break;
     }
@@ -493,9 +470,11 @@ void free_command(Command *cmd) {
     switch (cmd->type) {
         case CMD_DECLARE_VAR:
             free(cmd->data.declare_var.name);
+            free_array_dimension(cmd->data.declare_var.array_dims);
             break;
         case CMD_ASSIGN:
             free(cmd->data.assign.name);
+            free_expression_list(cmd->data.assign.indices);
             free_expression(cmd->data.assign.value);
             break;
         case CMD_READ:
@@ -866,7 +845,7 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
 
     switch (cmd->type) {
         case CMD_DECLARE_VAR:
-            insert_symbol(symbol_table, cmd->data.declare_var.name, cmd->data.declare_var.data_type, cmd->line_number);
+            insert_symbol(symbol_table, cmd->data.declare_var.name, cmd->data.declare_var.data_type, cmd->line_number, cmd->data.declare_var.array_dims);
             break;
 
         case CMD_ASSIGN: {
@@ -1048,6 +1027,71 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
             }
             break;
     }
+}
+
+ArrayDimension *create_array_dimension(int size, ArrayDimension *next) {
+    ArrayDimension *dim = (ArrayDimension*) malloc(sizeof(ArrayDimension));
+    if (dim == NULL) {
+        panic("Error: Memory allocation failed for array dimension\n");
+    }
+    dim->size = size;
+    dim->next = next;
+    return dim;
+}
+
+void free_array_dimension(ArrayDimension *dim) {
+    while (dim != NULL) {
+        ArrayDimension *next = dim->next;
+        free(dim);
+        dim = next;
+    }
+}
+
+// Parameter management with array support
+Parameter *create_parameter(char *name, DataType type, int is_reference, ArrayDimension *dims) {
+    Parameter *param = (Parameter*) malloc(sizeof(Parameter));
+    if (param == NULL) {
+        panic("Error: Memory allocation failed for parameter\n");
+    }
+
+    param->name = strdup(name);
+    param->type = type;
+    param->is_reference = is_reference;
+    param->array_dims = dims;
+    param->next = NULL;
+
+    return param;
+}
+
+// Expression creation for array access
+Expression* create_array_access_expression(char *array_name, ExpressionList *indices) {
+    Expression *expr = (Expression*) malloc(sizeof(Expression));
+    if (expr == NULL) {
+        panic("Error: Memory allocation failed for expression\n");
+    }
+
+    expr->type = EXPR_ARRAY_ACCESS;
+    expr->data.array_access.array_name = strdup(array_name);
+    expr->data.array_access.indices = indices;
+
+    return expr;
+}
+
+// Updated command creation functions
+Command* create_declare_var_command(char *name, DataType type, int line, ArrayDimension *dims) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_DECLARE_VAR;
+    cmd->line_number = line;
+    cmd->data.declare_var.name = strdup(name);
+    cmd->data.declare_var.data_type = type;
+    cmd->data.declare_var.array_dims = dims;
+    cmd->next = NULL;
+
+    return cmd;
 }
 
 void execute_command_list(CommandList *list) {

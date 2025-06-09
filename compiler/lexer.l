@@ -63,6 +63,9 @@ read						return READ;
 "{"							return LB;
 "}"							return RB;
 ","             return COMMA;
+"&"             return AMPERSAND;
+"["             return LBRACKET;
+"]"             return RBRACKET;
 
 [\t\f " "]					;
 

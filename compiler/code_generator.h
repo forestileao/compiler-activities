@@ -34,7 +34,16 @@ const char* get_format_for_type(DataType type);
 void generate_function_definitions(CommandList *list);
 LLVMValueRef generate_function_call(const char *func_name, ExpressionList *args, SymbolTable *symbol_table);
 
+// Type conversion functions
 DataType llvm_type_to_data_type(LLVMTypeRef llvm_type);
 LLVMTypeRef get_current_function_return_type();
+
+// Array support functions
+LLVMTypeRef get_array_type_from_symbol(Symbol *symbol);
+LLVMValueRef generate_array_access(const char *array_name, ExpressionList *indices, SymbolTable *symbol_table);
+void generate_array_assignment(const char *array_name, ExpressionList *indices, LLVMValueRef value, SymbolTable *symbol_table);
+
+// Helper function to check if an operator is a comparison
+int isComparisonOp(int operator);
 
 #endif

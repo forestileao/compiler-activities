@@ -9,7 +9,7 @@ compiler: lex.yy.c inter.tab.c command.c symbol_table.c code_generator.c
 	$(CC) $(CFLAGS) $(LLVM_CFLAGS) -o compiler lex.yy.c inter.tab.c command.c symbol_table.c code_generator.c -lfl $(LLVM_LDFLAGS)
 
 test: compiler
-	./compiler fib.ptl test.bc
+	./compiler vectors.ptl test.bc
 	opt -O3 test.bc -o optimized.bc
 	llc optimized.bc -filetype=obj -o output.o
 	clang -o output output.o

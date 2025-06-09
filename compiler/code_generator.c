@@ -93,6 +93,19 @@ static void cleanup_value_map() {
 static LLVMBasicBlockRef entry_block = NULL;
 static LLVMValueRef main_function = NULL;
 
+// Helper to create LLVM array types
+static LLVMTypeRef get_array_type(Symbol *symbol) {
+    LLVMTypeRef element_type = get_llvm_type(symbol->type);
+    LLVMTypeRef result = element_type;
+
+    // Build nested array type from innermost to outermost
+    for (int i = symbol->num_dimensions - 1; i >= 0; i--) {
+        result = LLVMArrayType(result, symbol->array_dimensions[i]);
+    }
+
+    return result;
+}
+
 void init_code_generation(const char *output_filename, SymbolTable *symbol_table, FunctionTable *function_table) {
     saved_output_filename = strdup(output_filename);
 
@@ -175,9 +188,20 @@ LLVMValueRef generate_function_call(const char *func_name, ExpressionList *args,
         int i = 0;
         arg = args;
 
-
         while (arg != NULL) {
-            arg_values[i] = generate_expression_code(arg->expr, symbol_table);
+            // Check if this is an array variable
+            if (arg->expr->type == EXPR_VAR) {
+                Symbol *sym = lookup_symbol(symbol_table, arg->expr->data.var_name);
+                if (sym && sym->is_array) {
+                    // For arrays, just get the pointer (don't load)
+                    arg_values[i] = get_value(arg->expr->data.var_name);
+                } else {
+                    // For scalars, generate normally
+                    arg_values[i] = generate_expression_code(arg->expr, symbol_table);
+                }
+            } else {
+                arg_values[i] = generate_expression_code(arg->expr, symbol_table);
+            }
 
             if (!arg_values[i]) {
                 free(arg_values);
@@ -189,7 +213,6 @@ LLVMValueRef generate_function_call(const char *func_name, ExpressionList *args,
     }
 
     // Get function type
-
     LLVMTypeRef func_type = LLVMGlobalGetValueType(function);
 
     // Generate call
@@ -250,6 +273,52 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
         case EXPR_FUNC_CALL:
             return generate_function_call(expr->data.func_call.func_name,
                                         expr->data.func_call.args, symbol_table);
+
+        case EXPR_ARRAY_ACCESS: {
+            LLVMValueRef array_ptr = get_value(expr->data.array_access.array_name);
+            if (!array_ptr) {
+                fprintf(stderr, "Error: Array '%s' not found\n",
+                        expr->data.array_access.array_name);
+                exit(1);
+                return NULL;
+            }
+
+            Symbol *symbol = lookup_symbol(symbol_table, expr->data.array_access.array_name);
+            if (!symbol || !symbol->is_array) {
+                fprintf(stderr, "Error: '%s' is not an array\n",
+                        expr->data.array_access.array_name);
+                exit(1);
+                return NULL;
+            }
+
+            // Count indices
+            int index_count = 0;
+            ExpressionList *idx = expr->data.array_access.indices;
+            while (idx != NULL) {
+                index_count++;
+                idx = idx->next;
+            }
+
+            // Build GEP indices
+            LLVMValueRef *indices = (LLVMValueRef*)malloc((index_count + 1) * sizeof(LLVMValueRef));
+            indices[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+
+            idx = expr->data.array_access.indices;
+            for (int i = 0; i < index_count; i++) {
+                indices[i + 1] = generate_expression_code(idx->expr, symbol_table);
+                idx = idx->next;
+            }
+
+            LLVMTypeRef array_type = get_array_type(symbol);
+            LLVMTypeRef element_type = get_llvm_type(symbol->type);
+
+            LLVMValueRef gep = LLVMBuildGEP2(builder, array_type, array_ptr,
+                                             indices, index_count + 1, "arrayidx");
+
+            free(indices);
+
+            return LLVMBuildLoad2(builder, element_type, gep, "arrayload");
+        }
 
         case EXPR_BINARY_OP: {
             LLVMValueRef left = generate_expression_code(expr->data.binary_op.left, symbol_table);
@@ -415,6 +484,10 @@ DataType get_expression_type(Expression *expr, SymbolTable *symbol_table) {
             return TYPE_CHAR;
         case EXPR_BOOL_LITERAL:
             return TYPE_BOOL;
+        case EXPR_ARRAY_ACCESS: {
+            Symbol *symbol = lookup_symbol(symbol_table, expr->data.array_access.array_name);
+            return symbol ? symbol->type : TYPE_UNKNOWN;
+        }
         case EXPR_FUNC_CALL: {
             if (current_function && strcmp(expr->data.func_call.func_name, LLVMGetValueName(current_function)) == 0) {
                 LLVMTypeRef return_type = get_current_function_return_type();
@@ -570,7 +643,43 @@ void generate_function_definitions(CommandList *list) {
                 param_types = (LLVMTypeRef*)malloc(param_count * sizeof(LLVMTypeRef));
                 param = params;
                 for (int i = 0; i < param_count; i++) {
-                    param_types[i] = get_llvm_type(param->type);
+                    if (param->is_reference || param->array_dims != NULL) {
+                        // Pass as pointer
+                        if (param->array_dims != NULL) {
+                            // Array parameter - create pointer to array type
+                            Symbol temp_symbol;
+                            temp_symbol.type = param->type;
+                            temp_symbol.is_array = 1;
+
+                            // Count and store dimensions
+                            int dim_count = 0;
+                            ArrayDimension *d = param->array_dims;
+                            while (d != NULL) {
+                                dim_count++;
+                                d = d->next;
+                            }
+
+                            temp_symbol.num_dimensions = dim_count;
+                            temp_symbol.array_dimensions = (int*)malloc(dim_count * sizeof(int));
+
+                            d = param->array_dims;
+                            for (int j = 0; j < dim_count; j++) {
+                                temp_symbol.array_dimensions[j] = d->size;
+                                d = d->next;
+                            }
+
+                            LLVMTypeRef array_type = get_array_type(&temp_symbol);
+                            param_types[i] = LLVMPointerType(array_type, 0);
+
+                            free(temp_symbol.array_dimensions);
+                        } else {
+                            // Reference parameter - simple pointer
+                            param_types[i] = LLVMPointerType(get_llvm_type(param->type), 0);
+                        }
+                    } else {
+                        // Value parameter
+                        param_types[i] = get_llvm_type(param->type);
+                    }
                     param = param->next;
                 }
             }
@@ -603,22 +712,29 @@ void generate_function_definitions(CommandList *list) {
             param = params;
             for (int i = 0; i < param_count; i++) {
                 LLVMValueRef param_val = LLVMGetParam(func, i);
-                LLVMTypeRef param_type = get_llvm_type(param->type);
-                LLVMValueRef alloca = LLVMBuildAlloca(builder, param_type, param->name);
-                LLVMBuildStore(builder, param_val, alloca);
-                add_to_value_map(param->name, alloca);
 
-                insert_symbol(current->data.func_def.body->symbol_table, param->name, param->type, 0);
+                if (param->is_reference || param->array_dims != NULL) {
+                    // For references and arrays, just store the pointer
+                    add_to_value_map(param->name, param_val);
+                } else {
+                    // For value parameters, create alloca and store
+                    LLVMTypeRef param_type = get_llvm_type(param->type);
+                    LLVMValueRef alloca = LLVMBuildAlloca(builder, param_type, param->name);
+                    LLVMBuildStore(builder, param_val, alloca);
+                    add_to_value_map(param->name, alloca);
+                }
+
+                // Insert into symbol table with array dimensions if applicable
+                insert_symbol(current->data.func_def.body->symbol_table,
+                              param->name, param->type, 0, param->array_dims);
 
                 param = param->next;
             }
 
             // Generate function body
-
             generate_code_for_command_list(current->data.func_def.body);
 
             // If no return statement, add default return
-
             if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
                 if (return_type == TYPE_INT) {
                     LLVMBuildRet(builder, LLVMConstInt(LLVMInt32Type(), 0, 0));
@@ -653,14 +769,11 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
     switch (cmd->type) {
         case CMD_FUNC_DEF:
             // Function definitions are handled separately
-
             break;
 
         case CMD_RETURN: {
-
             if (cmd->data.return_cmd.return_value) {
                 LLVMValueRef return_val = generate_expression_code(cmd->data.return_cmd.return_value, symbol_table);
-
                 if (return_val) {
                     LLVMBuildRet(builder, return_val);
                 }
@@ -673,25 +786,47 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
         case CMD_DECLARE_VAR: {
             const char *name = cmd->data.declare_var.name;
             DataType type = cmd->data.declare_var.data_type;
-            LLVMTypeRef llvm_type = get_llvm_type(type);
 
-            if (current_function != main_function) {
-                LLVMValueRef alloca = LLVMBuildAlloca(builder, llvm_type, name);
-                LLVMSetAlignment(alloca, 4);
+            if (cmd->data.declare_var.array_dims != NULL) {
+                // Array declaration
+                insert_symbol(symbol_table, name, type, cmd->line_number, cmd->data.declare_var.array_dims);
+                Symbol *symbol = lookup_symbol(symbol_table, name);
+                LLVMTypeRef array_type = get_array_type(symbol);
 
-                if (type == TYPE_FLOAT) {
-                    LLVMBuildStore(builder, LLVMConstReal(llvm_type, 0.0), alloca);
+                if (current_function != main_function) {
+                    // Local array
+                    LLVMValueRef alloca = LLVMBuildAlloca(builder, array_type, name);
+                    LLVMSetAlignment(alloca, 4);
+                    add_to_value_map(name, alloca);
                 } else {
-                    LLVMBuildStore(builder, LLVMConstInt(llvm_type, 0, 0), alloca);
+                    // Global array
+                    LLVMValueRef global = LLVMAddGlobal(module, array_type, name);
+                    LLVMSetInitializer(global, LLVMConstNull(array_type));
+                    LLVMSetLinkage(global, LLVMCommonLinkage);
+                    LLVMSetAlignment(global, 4);
+                    add_to_value_map(name, global);
                 }
-
-                insert_symbol(symbol_table, name, type, cmd->line_number);
-                add_to_value_map(name, alloca);
             } else {
-                LLVMValueRef global = create_global_variable(name, type);
+                // Scalar variable
+                LLVMTypeRef llvm_type = get_llvm_type(type);
 
-                insert_symbol(symbol_table, name, type, cmd->line_number);
-                add_to_value_map(name, global);
+                if (current_function != main_function) {
+                    LLVMValueRef alloca = LLVMBuildAlloca(builder, llvm_type, name);
+                    LLVMSetAlignment(alloca, 4);
+
+                    if (type == TYPE_FLOAT) {
+                        LLVMBuildStore(builder, LLVMConstReal(llvm_type, 0.0), alloca);
+                    } else {
+                        LLVMBuildStore(builder, LLVMConstInt(llvm_type, 0, 0), alloca);
+                    }
+
+                    insert_symbol(symbol_table, name, type, cmd->line_number, NULL);
+                    add_to_value_map(name, alloca);
+                } else {
+                    LLVMValueRef global = create_global_variable(name, type);
+                    insert_symbol(symbol_table, name, type, cmd->line_number, NULL);
+                    add_to_value_map(name, global);
+                }
             }
             break;
         }
@@ -704,6 +839,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                 exit(1);
                 break;
             }
+
             LLVMValueRef value = generate_expression_code(cmd->data.assign.value, symbol_table);
             if (!value) break;
 
@@ -712,18 +848,61 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                 fprintf(stderr, "Error: Variable '%s' not found in symbol table for assignment\n", name);
                 exit(1);
                 break;
-            };
-
-            DataType expr_type = get_expression_type(cmd->data.assign.value, symbol_table);
-            if (symbol->type != expr_type) {
-                if (symbol->type == TYPE_FLOAT && expr_type == TYPE_INT) {
-                    value = LLVMBuildSIToFP(builder, value, LLVMFloatType(), "int2float");
-                } else if (symbol->type == TYPE_INT && expr_type == TYPE_FLOAT) {
-                    value = LLVMBuildFPToSI(builder, value, LLVMInt32Type(), "float2int");
-                }
             }
 
-            LLVMBuildStore(builder, value, var);
+            if (cmd->data.assign.indices != NULL) {
+                // Array element assignment
+                if (!symbol->is_array) {
+                    fprintf(stderr, "Error: '%s' is not an array\n", name);
+                    exit(1);
+                    break;
+                }
+
+                int index_count = 0;
+                ExpressionList *idx = cmd->data.assign.indices;
+                while (idx != NULL) {
+                    index_count++;
+                    idx = idx->next;
+                }
+
+                LLVMValueRef *indices = (LLVMValueRef*)malloc((index_count + 1) * sizeof(LLVMValueRef));
+                indices[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+
+                idx = cmd->data.assign.indices;
+                for (int i = 0; i < index_count; i++) {
+                    indices[i + 1] = generate_expression_code(idx->expr, symbol_table);
+                    idx = idx->next;
+                }
+
+                LLVMTypeRef array_type = get_array_type(symbol);
+                LLVMValueRef gep = LLVMBuildGEP2(builder, array_type, var,
+                                                 indices, index_count + 1, "arrayidx");
+
+                // Handle type conversion if needed
+                DataType expr_type = get_expression_type(cmd->data.assign.value, symbol_table);
+                if (symbol->type != expr_type) {
+                    if (symbol->type == TYPE_FLOAT && expr_type == TYPE_INT) {
+                        value = LLVMBuildSIToFP(builder, value, LLVMFloatType(), "int2float");
+                    } else if (symbol->type == TYPE_INT && expr_type == TYPE_FLOAT) {
+                        value = LLVMBuildFPToSI(builder, value, LLVMInt32Type(), "float2int");
+                    }
+                }
+
+                LLVMBuildStore(builder, value, gep);
+                free(indices);
+            } else {
+                // Scalar assignment
+                DataType expr_type = get_expression_type(cmd->data.assign.value, symbol_table);
+                if (symbol->type != expr_type) {
+                    if (symbol->type == TYPE_FLOAT && expr_type == TYPE_INT) {
+                        value = LLVMBuildSIToFP(builder, value, LLVMFloatType(), "int2float");
+                    } else if (symbol->type == TYPE_INT && expr_type == TYPE_FLOAT) {
+                        value = LLVMBuildFPToSI(builder, value, LLVMInt32Type(), "float2int");
+                    }
+                }
+
+                LLVMBuildStore(builder, value, var);
+            }
             break;
         }
 

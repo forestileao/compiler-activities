@@ -7,6 +7,12 @@
 struct CommandList;
 struct FunctionDef;
 
+// Array dimension structure
+typedef struct ArrayDimension {
+    int size;
+    struct ArrayDimension *next;
+} ArrayDimension;
+
 typedef enum {
     CMD_DECLARE_VAR,
     CMD_ASSIGN,
@@ -23,6 +29,8 @@ typedef enum {
 typedef struct Parameter {
     char *name;
     DataType type;
+    int is_reference;  // 1 if pass-by-reference, 0 otherwise
+    ArrayDimension *array_dims;  // NULL if not array
     struct Parameter *next;
 } Parameter;
 
@@ -35,7 +43,8 @@ typedef struct Expression {
         EXPR_BOOL_LITERAL,
         EXPR_BINARY_OP,
         EXPR_UNARY_OP,
-        EXPR_FUNC_CALL
+        EXPR_FUNC_CALL,
+        EXPR_ARRAY_ACCESS
     } type;
 
     union {
@@ -60,6 +69,11 @@ typedef struct Expression {
             char *func_name;
             struct ExpressionList *args;
         } func_call;
+
+        struct {
+            char *array_name;
+            struct ExpressionList *indices;
+        } array_access;
     } data;
 } Expression;
 
@@ -76,10 +90,12 @@ typedef struct Command {
         struct {
             char *name;
             DataType data_type;
+            ArrayDimension *array_dims;
         } declare_var;
 
         struct {
             char *name;
+            ExpressionList *indices;  // NULL for simple variable, non-NULL for array
             Expression *value;
         } assign;
 
@@ -184,7 +200,11 @@ Function *lookup_function(FunctionTable *table, const char *name);
 void print_function_table(FunctionTable *table);
 void free_function_table(FunctionTable *table);
 
-Parameter *create_parameter(char *name, DataType type);
+// Array dimension functions
+ArrayDimension *create_array_dimension(int size, ArrayDimension *next);
+void free_array_dimension(ArrayDimension *dim);
+
+Parameter *create_parameter(char *name, DataType type, int is_reference, ArrayDimension *dims);
 void add_parameter(Parameter **head, Parameter *param);
 ExpressionList *create_expression_list();
 void add_expression_to_list(ExpressionList **head, Expression *expr);
@@ -194,8 +214,8 @@ void free_command_list(CommandList *list);
 void print_command_list(CommandList *list);
 void print_command_list_indented(CommandList *list, int indent);
 
-Command* create_declare_var_command(char *name, DataType type, int line);
-Command* create_assign_command(char *name, Expression *value, int line);
+Command* create_declare_var_command(char *name, DataType type, int line, ArrayDimension *dims);
+Command* create_assign_command(char *name, ExpressionList *indices, Expression *value, int line);
 Command* create_read_command(char *var_name, int line);
 Command* create_write_command(Expression *expr, char *string_literal, int line);
 Command* create_while_command(Expression *condition, CommandList *while_block, int line);
@@ -213,6 +233,7 @@ Expression* create_char_literal_expression(char value);
 Expression* create_binary_op_expression(Expression *left, int operator, Expression *right);
 Expression* create_unary_op_expression(int operator, Expression *operand);
 Expression* create_func_call_expression(char *func_name, ExpressionList *args);
+Expression* create_array_access_expression(char *array_name, ExpressionList *indices);
 
 void add_command(CommandList *list, Command *cmd);
 CommandList* create_sub_command_list(CommandList *parent);
