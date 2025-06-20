@@ -38,7 +38,7 @@ int yyerror(char *s);
 %token <ival> NUMBER
 %token <fval> FLOAT_NUMBER
 %token <cval> CHAR_LITERAL
-%token INT FLOAT CHAR BOOL TRUE FALSE WHILE IF THEN ELSE END
+%token INT FLOAT CHAR BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
 %token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 %token FUNC RETURN ARROW COMMA AMPERSAND LBRACKET RBRACKET
@@ -165,6 +165,8 @@ block : block_item
 
 block_item : cond_decl
            | while_decl
+           | do_while_decl
+           | repeat_until_decl
            | atrib_decl
            | read_decl
            | write_decl
@@ -199,6 +201,34 @@ while_decl  : WHILE exp
                 current_block = pop_block(block_stack);
                 add_command(current_block, while_cmd);
             }
+
+do_while_decl : DO
+                {
+                    push_block(block_stack, current_block);
+                    current_block = create_sub_command_list(cmd_list);
+                }
+                block WHILE exp END
+                {
+                    current_condition = $5;
+                    Command *do_while_cmd = create_do_while_command(current_condition, current_block, line_number);
+
+                    current_block = pop_block(block_stack);
+                    add_command(current_block, do_while_cmd);
+                }
+
+repeat_until_decl: REPEAT
+                {
+                    push_block(block_stack, current_block);
+                    current_block = create_sub_command_list(cmd_list);
+                }
+            block UNTIL NUMBER END
+                {
+                    int times = $5;
+                    Command *repeat_until_cmd = create_repeat_until_command(times, current_block, line_number);
+
+                    current_block = pop_block(block_stack);
+                    add_command(current_block, repeat_until_cmd);
+                }
 
 if_part     : IF exp THEN
             {

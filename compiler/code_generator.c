@@ -1384,6 +1384,79 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             break;
         }
 
+        case CMD_DO_WHILE: {
+            if_counter++;
+            char do_while_block_name[20];
+            snprintf(do_while_block_name, sizeof(do_while_block_name), "do_while_%d", if_counter);
+            LLVMBasicBlockRef do_while_block = LLVMAppendBasicBlock(current_function, do_while_block_name);
+
+            char cond_block_name[20];
+            snprintf(cond_block_name, sizeof(cond_block_name), "cond_%d", if_counter);
+            LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(current_function, cond_block_name);
+
+            char continue_block_name[20];
+            snprintf(continue_block_name, sizeof(continue_block_name), "continue_%d", if_counter);
+            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(current_function, continue_block_name);
+
+            LLVMBuildBr(builder, do_while_block);
+
+            LLVMPositionBuilderAtEnd(builder, do_while_block);
+            generate_code_for_command_list(cmd->data.do_while_cmd.do_while_block);
+            if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+                LLVMBuildBr(builder, cond_block);
+            }
+
+            LLVMPositionBuilderAtEnd(builder, cond_block);
+            LLVMValueRef condition = generate_expression_code(cmd->data.do_while_cmd.condition, symbol_table);
+            if (!condition) break;
+            LLVMBuildCondBr(builder, condition, do_while_block, continue_block);
+
+            LLVMPositionBuilderAtEnd(builder, continue_block);
+            break;
+        }
+
+        case CMD_REPEAT_UNTIL: {
+            if_counter++;
+            char repeat_block_name[20];
+            snprintf(repeat_block_name, sizeof(repeat_block_name), "repeat_%d", if_counter);
+            LLVMBasicBlockRef repeat_block = LLVMAppendBasicBlock(current_function, repeat_block_name);
+
+            char cond_block_name[20];
+            snprintf(cond_block_name, sizeof(cond_block_name), "cond_%d", if_counter);
+            LLVMBasicBlockRef cond_block = LLVMAppendBasicBlock(current_function, cond_block_name);
+
+            char continue_block_name[20];
+            snprintf(continue_block_name, sizeof(continue_block_name), "continue_%d", if_counter);
+            LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(current_function, continue_block_name);
+
+            LLVMValueRef counter = LLVMBuildAlloca(builder, LLVMInt32Type(), "repeat_counter");
+            LLVMBuildStore(builder, LLVMConstInt(LLVMInt32Type(), 0, 0), counter);
+
+            LLVMBuildBr(builder, repeat_block);
+
+            LLVMPositionBuilderAtEnd(builder, repeat_block);
+            generate_code_for_command_list(cmd->data.repeat_until_cmd.repeat_until_block);
+
+            LLVMValueRef current_count = LLVMBuildLoad2(builder, LLVMInt32Type(), counter, "current_count");
+            LLVMValueRef incremented = LLVMBuildAdd(builder, current_count, 
+            LLVMConstInt(LLVMInt32Type(), 1, 0), "incremented");
+            LLVMBuildStore(builder, incremented, counter);
+
+            if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+                LLVMBuildBr(builder, cond_block);
+            }
+
+            LLVMPositionBuilderAtEnd(builder, cond_block);
+            LLVMValueRef final_count = LLVMBuildLoad2(builder, LLVMInt32Type(), counter, "final_count");
+            LLVMValueRef times_value = LLVMConstInt(LLVMInt32Type(), cmd->data.repeat_until_cmd.times, 0);
+
+            LLVMValueRef condition = LLVMBuildICmp(builder, LLVMIntSLT, final_count, times_value, "repeat_cond");
+            LLVMBuildCondBr(builder, condition, repeat_block, continue_block);
+
+            LLVMPositionBuilderAtEnd(builder, continue_block);
+            break;
+        }
+
         case CMD_IF: {
             if_counter++;
             LLVMValueRef condition = generate_expression_code(cmd->data.if_cmd.condition, symbol_table);

@@ -19,6 +19,8 @@ typedef enum {
     CMD_READ,
     CMD_WRITE,
     CMD_WHILE,
+    CMD_DO_WHILE,
+    CMD_REPEAT_UNTIL,
     CMD_IF,
     CMD_IF_ELSE,
     CMD_EXPRESSION,
@@ -112,6 +114,16 @@ typedef struct Command {
             Expression *condition;
             struct CommandList *while_block;
         } while_cmd;
+
+        struct {
+            Expression *condition;
+            struct CommandList *do_while_block;
+        } do_while_cmd;
+
+        struct {
+            int times;
+            struct CommandList *repeat_until_block;
+        } repeat_until_cmd;
 
         struct {
             Expression *condition;
@@ -219,6 +231,8 @@ Command* create_assign_command(char *name, ExpressionList *indices, Expression *
 Command* create_read_command(char *var_name, int line);
 Command* create_write_command(Expression *expr, char *string_literal, int line);
 Command* create_while_command(Expression *condition, CommandList *while_block, int line);
+Command* create_do_while_command(Expression *condition, CommandList *while_block, int line);
+Command* create_repeat_until_command(int times, CommandList *repeat_until_block, int line);
 Command* create_if_command(Expression *condition, CommandList *then_block, int line);
 Command* create_if_else_command(Expression *condition, CommandList *then_block, CommandList *else_block, int line);
 Command* create_expression_command(Expression *expr, int line);

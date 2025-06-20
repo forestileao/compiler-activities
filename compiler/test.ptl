@@ -28,11 +28,30 @@ int z;
 z = x;
 while z > 0
     write(z);
-    z = z - 1;
     if z == 1 then
         write("Ultimo");
     end
+    z = z - 1;
 end
+
+z = 0;
+do
+    write(z);
+    if z == 1 then
+        write("Ultimo");
+    end
+    z = z - 1;
+while z > 0 end
+
+int r;
+r = 0;
+repeat
+    write(r);
+    r = r + 2;
+    if r > 15 then
+        write("Greater than 15!");
+    end
+until 10 end
 
 write("x is: ");
 write(x);

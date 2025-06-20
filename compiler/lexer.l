@@ -14,7 +14,10 @@ true						return TRUE;
 false						return FALSE;
 bool            return BOOL;
 
+do              return DO;
 while           return WHILE;
+repeat          return REPEAT;
+until           return UNTIL;
 if							return IF;
 then						return THEN;
 else						return ELSE;

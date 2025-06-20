@@ -259,6 +259,36 @@ Command* create_while_command(Expression *condition, CommandList *while_block, i
     return cmd;
 }
 
+Command* create_do_while_command(Expression *condition, CommandList *do_while_block, int line) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_DO_WHILE;
+    cmd->line_number = line;
+    cmd->data.do_while_cmd.condition = condition;
+    cmd->data.do_while_cmd.do_while_block = do_while_block;
+    cmd->next = NULL;
+
+    return cmd;
+}
+
+Command* create_repeat_until_command(int times, CommandList *repeat_until_block, int line) {
+    Command *cmd = (Command*) malloc(sizeof(Command));
+    if (cmd == NULL) {
+        panic("Error: Memory allocation failed for command\n");
+    }
+
+    cmd->type = CMD_REPEAT_UNTIL;
+    cmd->line_number = line;
+    cmd->data.repeat_until_cmd.times = times;
+    cmd->data.repeat_until_cmd.repeat_until_block = repeat_until_block;
+    cmd->next = NULL;
+
+    return cmd;
+}
+
 Command* create_if_command(Expression *condition, CommandList *then_block, int line) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
@@ -488,6 +518,13 @@ void free_command(Command *cmd) {
             free_expression(cmd->data.while_cmd.condition);
             free_command_list(cmd->data.while_cmd.while_block);
             break;
+        case CMD_DO_WHILE:
+            free_expression(cmd->data.do_while_cmd.condition);
+            free_command_list(cmd->data.do_while_cmd.do_while_block);
+            break;
+        case CMD_REPEAT_UNTIL:
+            free_command_list(cmd->data.repeat_until_cmd.repeat_until_block);
+            break;
         case CMD_IF:
             free_expression(cmd->data.if_cmd.condition);
             free_command_list(cmd->data.if_cmd.then_block);
@@ -612,6 +649,19 @@ void print_command(Command *cmd, int indent) {
             print_expression(cmd->data.while_cmd.condition, indent + 2);
             printf("%sWhile Block:\n", indent_str);
             print_command_list_indented(cmd->data.while_cmd.while_block, indent + 2);
+            break;
+        case CMD_DO_WHILE:
+            printf("Do While Statement\n");
+            printf("%sCondition:\n", indent_str);
+            print_expression(cmd->data.do_while_cmd.condition, indent + 2);
+            printf("%sDo While Block:\n", indent_str);
+            print_command_list_indented(cmd->data.do_while_cmd.do_while_block, indent + 2);
+            break;
+        case CMD_REPEAT_UNTIL:
+            printf("Repeat Until Statement\n");
+            printf("%sNumber of times to run: %d\n", indent_str, cmd->data.repeat_until_cmd.times);
+            printf("%sRepeat Block:\n", indent_str);
+            print_command_list_indented(cmd->data.repeat_until_cmd.repeat_until_block, indent + 2);
             break;
         case CMD_IF:
             printf("If Statement\n");
@@ -969,10 +1019,11 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
                             printf("%s\n", value ? "true" : "false");
                             break;
                         }
-                        default:
+                        default: {
                             int value = evaluate_expression(cmd->data.write.expr, symbol_table);
                             printf("%d\n", value);
                             break;
+                        }
                     }
                 } else {
                     // Not a variable or unknown type, evaluate as int
@@ -987,6 +1038,23 @@ void execute_command(Command *cmd, SymbolTable *symbol_table) {
             while (condition) {
                 execute_command_list(cmd->data.while_cmd.while_block);
                 condition = evaluate_expression(cmd->data.while_cmd.condition, symbol_table);
+            }
+            break;
+        }
+
+        case CMD_DO_WHILE: {
+            int condition = evaluate_expression(cmd->data.do_while_cmd.condition, symbol_table);
+            do {
+                execute_command_list(cmd->data.do_while_cmd.do_while_block);
+                condition = evaluate_expression(cmd->data.do_while_cmd.condition, symbol_table);
+            } while (condition);
+            break;
+        }
+
+        case CMD_REPEAT_UNTIL: {
+            int times_to_run = cmd->data.repeat_until_cmd.times;
+            for (int i = 0; i < times_to_run; i++) {
+                execute_command_list(cmd->data.repeat_until_cmd.repeat_until_block);
             }
             break;
         }
