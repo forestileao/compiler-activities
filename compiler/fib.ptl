@@ -1,28 +1,51 @@
-func fibonacci(int n) -> int
+int cache[40];
+
+func fibonacci(int n, &int cache[40]) -> int
+    int cache_num;
+    cache_num = cache[n];
+
+    if cache_num != 0 then
+        return cache_num;
+    end
+
     if n <= 1 then
         return n;
     end
 
-    return fibonacci(n - 1) + fibonacci(n - 2);
+    int result;
+    result = fibonacci(n - 1, cache) + fibonacci(n - 2, cache);
+    cache[n] = result;
+
+    return result;
 end
 
-func main_program() -> int
+func main_program(&int cache[40]) -> int
     int n;
     int until_num;
     int fib_result;
 
     n = 1;
 
-    write("Fibonacci sequence up to: ");
+    writeln("Fibonacci sequence up to: ");
     read(until_num);
 
     while n <= until_num
-      fib_result = fibonacci(n);
+      fib_result = fibonacci(n, cache);
       write(fib_result);
+      write(" ");
 
       n = n + 1;
     end
     return 0;
 end
 
-main_program();
+int i;
+i = 0;
+
+repeat
+    cache[i] = 0;
+    i = i + 1;
+until 40 end
+
+
+main_program(cache);

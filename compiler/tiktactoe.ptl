@@ -25,17 +25,17 @@ func print_symbol(int value) -> int
 end
 
 func print_game_board(int b1, int b2, int b3, int b4, int b5, int b6, int b7, int b8, int b9) -> int
-    write("");
-    write("   TIC TAC TOE");
-    write("");
-    write("   1 | 2 | 3");
-    write("   ---------");
-    write("   4 | 5 | 6");
-    write("   ---------");
-    write("   7 | 8 | 9");
-    write("");
-    write("Tabuleiro atual:");
-    write("");
+    writeln("");
+    writeln("   TIC TAC TOE");
+    writeln("");
+    writeln("   1 | 2 | 3");
+    writeln("   ---------");
+    writeln("   4 | 5 | 6");
+    writeln("   ---------");
+    writeln("   7 | 8 | 9");
+    writeln("");
+    writeln("Tabuleiro atual:");
+    writeln("");
 
     write("   ");
     print_symbol(b1);
@@ -43,9 +43,9 @@ func print_game_board(int b1, int b2, int b3, int b4, int b5, int b6, int b7, in
     print_symbol(b2);
     write(" | ");
     print_symbol(b3);
-    write("");
+    writeln("");
 
-    write("   ---------");
+    writeln("   ---------");
 
     write("   ");
     print_symbol(b4);
@@ -53,9 +53,9 @@ func print_game_board(int b1, int b2, int b3, int b4, int b5, int b6, int b7, in
     print_symbol(b5);
     write(" | ");
     print_symbol(b6);
-    write("");
+    writeln("");
 
-    write("   ---------");
+    writeln("   ---------");
 
     write("   ");
     print_symbol(b7);
@@ -63,8 +63,8 @@ func print_game_board(int b1, int b2, int b3, int b4, int b5, int b6, int b7, in
     print_symbol(b8);
     write(" | ");
     print_symbol(b9);
-    write("");
-    write("");
+    writeln("");
+    writeln("");
 
     return 0;
 end
@@ -146,8 +146,8 @@ func get_move_input(int player, int b1, int b2, int b3, int b4, int b5, int b6, 
         if is_position_valid(position, b1, b2, b3, b4, b5, b6, b7, b8, b9) then
             valid = true;
         else
-            write("Movimento invalido! Tente novamente.");
-            write("");
+            writeln("Movimento invalido! Tente novamente.");
+            writeln("");
         end
     end
 
@@ -155,54 +155,54 @@ func get_move_input(int player, int b1, int b2, int b3, int b4, int b5, int b6, 
 end
 
 func announce_winner_player(int winner_player) -> int
-    write("");
-    write("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
+    writeln("");
+    writeln("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
 
     if winner_player == 1 then
-        write("     JOGADOR X VENCEU!");
+        writeln("     JOGADOR X VENCEU!");
     else
-        write("     JOGADOR O VENCEU!");
+        writeln("     JOGADOR O VENCEU!");
     end
 
-    write("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
-    write("");
+    writeln("🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉");
+    writeln("");
     return 0;
 end
 
 func announce_game_tie() -> int
-    write("");
-    write("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
-    write("        EMPATE!");
-    write("   Jogo muito equilibrado!");
-    write("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
-    write("");
+    writeln("");
+    writeln("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
+    writeln("        EMPATE!");
+    writeln("   Jogo muito equilibrado!");
+    writeln("🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝🤝");
+    writeln("");
     return 0;
 end
 
 func show_game_instructions() -> int
-    write("");
-    write("📋 COMO JOGAR TIC TAC TOE:");
-    write("");
-    write("• O tabuleiro tem 9 posicoes numeradas de 1 a 9");
-    write("• Jogador X sempre comeca");
-    write("• Digite o numero da posicao onde quer jogar");
-    write("• Ganhe fazendo 3 em linha (horizontal, vertical ou diagonal)");
-    write("• Se o tabuleiro encher sem vencedor, e empate!");
-    write("");
-    write("Posicoes do tabuleiro:");
-    write("   1 | 2 | 3");
-    write("   ---------");
-    write("   4 | 5 | 6");
-    write("   ---------");
-    write("   7 | 8 | 9");
-    write("");
+    writeln("");
+    writeln("📋 COMO JOGAR TIC TAC TOE:");
+    writeln("");
+    writeln("• O tabuleiro tem 9 posicoes numeradas de 1 a 9");
+    writeln("• Jogador X sempre comeca");
+    writeln("• Digite o numero da posicao onde quer jogar");
+    writeln("• Ganhe fazendo 3 em linha (horizontal, vertical ou diagonal)");
+    writeln("• Se o tabuleiro encher sem vencedor, e empate!");
+    writeln("");
+    writeln("Posicoes do tabuleiro:");
+    writeln("   1 | 2 | 3");
+    writeln("   ---------");
+    writeln("   4 | 5 | 6");
+    writeln("   ---------");
+    writeln("   7 | 8 | 9");
+    writeln("");
     return 0;
 end
 
 func ask_new_game() -> bool
     int choice;
-    write("Deseja jogar novamente?");
-    write("1 = Sim, 0 = Nao");
+    writeln("Deseja jogar novamente?");
+    writeln("1 = Sim, 0 = Nao");
     read(choice);
     return choice == 1;
 end
@@ -224,8 +224,8 @@ func play_tic_tac_toe() -> int
     game_over = 0;
     winner = 0;
 
-    write("");
-    write("🎮 INICIANDO NOVO JOGO! 🎮");
+    writeln("");
+    writeln("🎮 INICIANDO NOVO JOGO! 🎮");
 
     while game_over == 0
         print_game_board(board1, board2, board3, board4, board5, board6, board7, board8, board9);
@@ -270,12 +270,12 @@ func main_game_menu() -> int
 
     playing = true;
 
-    write("🎯 TIC TAC TOE GAME 🎯");
-    write("");
-    write("1 - Jogar");
-    write("2 - Instrucoes");
-    write("3 - Sair");
-    write("");
+    writeln("🎯 TIC TAC TOE GAME 🎯");
+    writeln("");
+    writeln("1 - Jogar");
+    writeln("2 - Instrucoes");
+    writeln("3 - Sair");
+    writeln("");
 
     while playing
         write("Escolha uma opcao: ");
@@ -285,10 +285,10 @@ func main_game_menu() -> int
             play_tic_tac_toe();
 
             if ask_new_game() then
-                write("Preparando novo jogo...");
+                writeln("Preparando novo jogo...");
             else
                 playing = false;
-                write("Obrigado por jogar! Ate a proxima! 👋");
+                writeln("Obrigado por jogar! Ate a proxima! 👋");
             end
 
         else
@@ -297,18 +297,18 @@ func main_game_menu() -> int
             else
                 if option == 3 then
                     playing = false;
-                    write("Saindo do jogo... Ate logo! 👋");
+                    writeln("Saindo do jogo... Ate logo! 👋");
                 else
-                    write("Opcao invalida! Tente novamente.");
+                    writeln("Opcao invalida! Tente novamente.");
                 end
             end
         end
 
-        write("");
+        writeln("");
     end
 
     return 0;
 end
 
-write("Carregando Tic Tac Toe...");
+writeln("Carregando Tic Tac Toe...");
 main_game_menu();

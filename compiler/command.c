@@ -229,7 +229,7 @@ Command* create_read_command(char *var_name, int line) {
     return cmd;
 }
 
-Command* create_write_command(Expression *expr, char *string_literal, int line) {
+Command* create_write_command(Expression *expr, char *string_literal, int line, int newline) {
     Command *cmd = (Command*) malloc(sizeof(Command));
     if (cmd == NULL) {
         panic("Error: Memory allocation failed for command\n");
@@ -239,6 +239,7 @@ Command* create_write_command(Expression *expr, char *string_literal, int line) 
     cmd->line_number = line;
     cmd->data.write.expr = expr;
     cmd->data.write.string_literal = string_literal ? strdup(string_literal) : NULL;
+    cmd->data.write.newline = newline;
     cmd->next = NULL;
 
     return cmd;

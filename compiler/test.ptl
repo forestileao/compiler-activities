@@ -6,39 +6,39 @@ bool i;
 i = not((11 >= 10) and (2 < 3) or (5 == 5)) or (not(5 == 5) or (2 < 3));
 
 c = 'A';
-write(c);
-write("i is: ");
-write(i);
+writeln(c);
+writeln("i is: ");
+writeln(i);
 
 if i then
-    write("i is true");
+    writeln("i is true");
 else
-    write("i is false");
+    writeln("i is false");
 end
 
 x = 10;
 y = x + 80;
 
-write("y is: ");
-write(y);
+writeln("y is: ");
+writeln(y);
 
 read(x);
 
 int z;
 z = x;
 while z > 0
-    write(z);
+    writeln(z);
     if z == 1 then
-        write("Ultimo");
+        writeln("Ultimo");
     end
     z = z - 1;
 end
 
 z = 0;
 do
-    write(z);
+    writeln(z);
     if z == 1 then
-        write("Ultimo");
+        writeln("Ultimo");
     end
     z = z - 1;
 while z > 0 end
@@ -46,43 +46,43 @@ while z > 0 end
 int r;
 r = 0;
 repeat
-    write(r);
+    writeln(r);
     r = r + 2;
     if r > 15 then
-        write("Greater than 15!");
+        writeln("Greater than 15!");
     end
 until 10 end
 
-write("x is: ");
-write(x);
+writeln("x is: ");
+writeln(x);
 
-write("Hello, world!");
+writeln("Hello, world!");
 
 if x < 10 then
-    write("x is less than 10, so we set y to 5");
+    writeln("x is less than 10, so we set y to 5");
     y = 5;
 else
-    write("x is greater than or equal to 10");
+    writeln("x is greater than or equal to 10");
 end
 
 if (y > 10) and (y < 100000) then
-    write("y is greater than 10 and less than 100000");
+    writeln("y is greater than 10 and less than 100000");
 
     if y > 100 then
-        write("y is greater than 100");
+        writeln("y is greater than 100");
     else
-        write("y is less than or equal to 100");
+        writeln("y is less than or equal to 100");
     end
 
-    write("here is the end of the exp");
+    writeln("here is the end of the exp");
 else
-    write("y is less than or equal to 10");
+    writeln("y is less than or equal to 10");
 end
 
 x = (5 + 3) * 2;
 y = x / 4;
 
-write("x = (5 + 3) * 2 is");
-write(x);
-write("x / 4 is:");
-write(y);
+writeln("x = (5 + 3) * 2 is");
+writeln(x);
+writeln("x / 4 is:");
+writeln(y);

@@ -36,8 +36,10 @@ func imprimir_matriz(&int matriz[10][10]) -> int
         j = 0;
         while j < 10
             write(matriz[i][j]);
+            write(" ");
             j = j + 1;
         end
+        writeln("");
         i = i + 1;
     end
 
@@ -49,6 +51,7 @@ func imprimir_vetor(&int vetor[10]) -> int
     i = 0;
     while i < 10
         write(vetor[i]);
+        write(" ");
         i = i + 1;
     end
 
@@ -58,7 +61,8 @@ end
 preencher_vetor(vetor);
 imprimir_vetor(vetor);
 
-write("Vamos preencher a matriz agora...\n");
+writeln("");
+writeln("Vamos preencher a matriz agora...\n");
 
 preencher_matriz(matriz);
 imprimir_matriz(matriz);

@@ -39,7 +39,7 @@ int yyerror(char *s);
 %token <fval> FLOAT_NUMBER
 %token <cval> CHAR_LITERAL
 %token INT FLOAT CHAR BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
-%token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
+%token WRITE WRITELN READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 %token FUNC RETURN ARROW COMMA AMPERSAND LBRACKET RBRACKET
 
@@ -170,6 +170,7 @@ block_item : cond_decl
            | atrib_decl
            | read_decl
            | write_decl
+           | writeln_decl
            | var_decl
            | return_stmt
            | func_call_stmt
@@ -357,39 +358,79 @@ read_decl : READ LPAREN ID RPAREN SEMICOLON
 write_decl : WRITE LPAREN ID RPAREN SEMICOLON
            {
                Expression *expr = create_var_expression($3);
-               Command *cmd = create_write_command(expr, NULL, line_number);
+               Command *cmd = create_write_command(expr, NULL, line_number, 0);
                add_command(current_block, cmd);
                free($3);
            }
            | WRITE LPAREN STRING RPAREN SEMICOLON
            {
-               Command *cmd = create_write_command(NULL, $3, line_number);
+               Command *cmd = create_write_command(NULL, $3, line_number, 0);
                add_command(current_block, cmd);
                free($3);
            }
            | WRITE LPAREN CHAR_LITERAL RPAREN SEMICOLON
            {
                char str[2] = {$3, '\0'};
-               Command *cmd = create_write_command(NULL, str, line_number);
+               Command *cmd = create_write_command(NULL, str, line_number, 0);
                add_command(current_block, cmd);
            }
            | WRITE LPAREN NUMBER RPAREN SEMICOLON
            {
                char str[1000000];
                sprintf(str, "%d", $3);
-               Command *cmd = create_write_command(NULL, str, line_number);
+               Command *cmd = create_write_command(NULL, str, line_number, 0);
                add_command(current_block, cmd);
            }
            | WRITE LPAREN FLOAT_NUMBER RPAREN SEMICOLON
            {
                char str[1000000];
                sprintf(str, "%f", $3);
-               Command *cmd = create_write_command(NULL, str, line_number);
+               Command *cmd = create_write_command(NULL, str, line_number, 0);
                add_command(current_block, cmd);
            }
            | WRITE LPAREN exp RPAREN SEMICOLON
            {
-               Command *cmd = create_write_command($3, NULL, line_number);
+               Command *cmd = create_write_command($3, NULL, line_number, 0);
+               add_command(current_block, cmd);
+           }
+           ;
+
+writeln_decl : WRITELN LPAREN ID RPAREN SEMICOLON
+           {
+               Expression *expr = create_var_expression($3);
+               Command *cmd = create_write_command(expr, NULL, line_number, 1);
+               add_command(current_block, cmd);
+               free($3);
+           }
+           | WRITELN LPAREN STRING RPAREN SEMICOLON
+           {
+               Command *cmd = create_write_command(NULL, $3, line_number, 1);
+               add_command(current_block, cmd);
+               free($3);
+           }
+           | WRITELN LPAREN CHAR_LITERAL RPAREN SEMICOLON
+           {
+               char str[2] = {$3, '\0'};
+               Command *cmd = create_write_command(NULL, str, line_number, 1);
+               add_command(current_block, cmd);
+           }
+           | WRITELN LPAREN NUMBER RPAREN SEMICOLON
+           {
+               char str[1000000];
+               sprintf(str, "%d", $3);
+               Command *cmd = create_write_command(NULL, str, line_number, 1);
+               add_command(current_block, cmd);
+           }
+           | WRITELN LPAREN FLOAT_NUMBER RPAREN SEMICOLON
+           {
+               char str[1000000];
+               sprintf(str, "%f", $3);
+               Command *cmd = create_write_command(NULL, str, line_number, 1);
+               add_command(current_block, cmd);
+           }
+           | WRITELN LPAREN exp RPAREN SEMICOLON
+           {
+               Command *cmd = create_write_command($3, NULL, line_number, 1);
                add_command(current_block, cmd);
            }
            ;

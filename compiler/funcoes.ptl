@@ -9,7 +9,7 @@ func multiplicar(int x, int y) -> int
 end
 
 func saudacao() -> int
-    write("Olá, mundo das funções!");
+    writeln("Olá, mundo das funções!");
     return 0;
 end
 
@@ -24,14 +24,14 @@ num2 = 5;
 resultadosoma = soma(num1, num2);
 resultadomult = multiplicar(num1, num2);
 
-write("Números: ");
-write(num1);
-write(num2);
+writeln("Números: ");
+writeln(num1);
+writeln(num2);
 
-write("Soma: ");
-write(resultadosoma);
+writeln("Soma: ");
+writeln(resultadosoma);
 
-write("Multiplicação: ");
-write(resultadomult);
+writeln("Multiplicação: ");
+writeln(resultadomult);
 
 saudacao();

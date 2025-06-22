@@ -108,6 +108,7 @@ typedef struct Command {
         struct {
             Expression *expr;
             char *string_literal;
+            int newline;
         } write;
 
         struct {
@@ -229,7 +230,7 @@ void print_command_list_indented(CommandList *list, int indent);
 Command* create_declare_var_command(char *name, DataType type, int line, ArrayDimension *dims);
 Command* create_assign_command(char *name, ExpressionList *indices, Expression *value, int line);
 Command* create_read_command(char *var_name, int line);
-Command* create_write_command(Expression *expr, char *string_literal, int line);
+Command* create_write_command(Expression *expr, char *string_literal, int line, int newline);
 Command* create_while_command(Expression *condition, CommandList *while_block, int line);
 Command* create_do_while_command(Expression *condition, CommandList *while_block, int line);
 Command* create_repeat_until_command(int times, CommandList *repeat_until_block, int line);

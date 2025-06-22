@@ -27,6 +27,7 @@ func            return FUNC;
 return          return RETURN;
 
 write						return WRITE;
+writeln					return WRITELN;
 read						return READ;
 
 "or"            return OR;

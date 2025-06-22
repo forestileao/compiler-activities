@@ -1170,7 +1170,12 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
 
             if (cmd->data.write.string_literal) {
                 char format[256];
-                snprintf(format, sizeof(format), "%s\n", cmd->data.write.string_literal);
+
+                if (cmd->data.write.newline) {
+                    snprintf(format, sizeof(format), "%s\n", cmd->data.write.string_literal);
+                } else {
+                    snprintf(format, sizeof(format), "%s", cmd->data.write.string_literal);
+                }
 
                 LLVMValueRef format_str = LLVMBuildGlobalStringPtr(builder, format, "str_literal");
                 if (!format_str) {
@@ -1194,19 +1199,19 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                 const char *format;
                 switch (expr_type) {
                     case TYPE_INT:
-                        format = "%d\n";
+                        format = cmd->data.write.newline ? "%d\n" : "%d";
                         break;
                     case TYPE_FLOAT:
-                        format = "%f\n";
+                        format = cmd->data.write.newline ? "%f\n" : "%f";
                         break;
                     case TYPE_CHAR:
-                        format = "%c\n";
+                        format = cmd->data.write.newline ? "%c\n" : "%c";
                         break;
                     case TYPE_BOOL:
-                        format = "%s\n";
+                        format = cmd->data.write.newline ? "%s\n" : "%s";
                         break;
                     default:
-                        format = "%d\n";
+                        format = cmd->data.write.newline ? "%d\n" : "%d";
                         break;
                 }
 
@@ -1332,7 +1337,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                     }
                 }
             }
-            else {
+            else if (cmd->data.write.newline) {
                 LLVMValueRef newline_str = LLVMBuildGlobalStringPtr(builder, "\n", "newline");
 
                 if (!newline_str) {
@@ -1438,7 +1443,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             generate_code_for_command_list(cmd->data.repeat_until_cmd.repeat_until_block);
 
             LLVMValueRef current_count = LLVMBuildLoad2(builder, LLVMInt32Type(), counter, "current_count");
-            LLVMValueRef incremented = LLVMBuildAdd(builder, current_count, 
+            LLVMValueRef incremented = LLVMBuildAdd(builder, current_count,
             LLVMConstInt(LLVMInt32Type(), 1, 0), "incremented");
             LLVMBuildStore(builder, incremented, counter);
 
