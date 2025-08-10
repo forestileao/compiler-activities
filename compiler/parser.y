@@ -38,7 +38,7 @@ int yyerror(char *s);
 %token <ival> NUMBER
 %token <fval> FLOAT_NUMBER
 %token <cval> CHAR_LITERAL
-%token INT FLOAT CHAR BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
+%token INT STRING_TYPE FLOAT CHAR BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
 %token WRITE WRITELN READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token INT FLOAT CHAR STRING BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
 %token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
@@ -304,7 +304,7 @@ var_decl : INT ID SEMICOLON
            add_command(current_block, cmd);
            free($2);
          }
-        | STRING ID SEMICOLON {
+        | STRING_TYPE ID SEMICOLON {
             Command *cmd = create_declare_var_command($2, TYPE_STRING, line_number, NULL);
             add_command(current_block, cmd);
             free($2);
@@ -541,6 +541,10 @@ factor : LPAREN exp RPAREN
        {
            $$ = create_char_literal_expression($1);
        }
+        | STRING
+        {
+            $$ = create_string_literal_expression($1);
+        }
        | ID
        {
            $$ = create_var_expression($1);

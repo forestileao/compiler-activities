@@ -1344,7 +1344,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             }
             else if (cmd->data.write.expr) {
                 DataType expr_type = get_expression_type(cmd->data.write.expr, symbol_table);
-
+                printf("Expression type: %d\n", expr_type);
                 const char *format;
                 switch (expr_type) {
                     case TYPE_INT:
@@ -1357,7 +1357,7 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                         format = cmd->data.write.newline ? "%c\n" : "%c";
                         break;
                     case TYPE_STRING:
-                        format = "%s\n";
+                        format = cmd->data.write.newline ? "%s\n" : "%s";
                         break;
                     case TYPE_BOOL:
                         format = cmd->data.write.newline ? "%s\n" : "%s";
@@ -1375,7 +1375,6 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                 }
 
                 LLVMValueRef value = NULL;
-
                 if (cmd->data.write.expr->type == EXPR_VAR) {
                     const char *var_name = cmd->data.write.expr->data.var_name;
 
@@ -1416,7 +1415,16 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                         }
                     }
 
-                    value = LLVMBuildLoad2(builder, var_type, var_alloca, "load_for_print");
+                    if (expr_type == TYPE_STRING) {
+                        LLVMTypeRef string_type = LLVMArrayType(LLVMInt8Type(), 256);
+                        LLVMValueRef indices[] = {
+                            LLVMConstInt(LLVMInt32Type(), 0, 0),
+                            LLVMConstInt(LLVMInt32Type(), 0, 0)
+                        };
+                        value = LLVMBuildGEP2(builder, string_type, var_alloca, indices, 2, "str_ptr");
+                    } else {
+                        value = LLVMBuildLoad2(builder, var_type, var_alloca, "load_for_print");
+                    }
                 }
                 else {
                     value = generate_expression_code(cmd->data.write.expr, symbol_table);

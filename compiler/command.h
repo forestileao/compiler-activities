@@ -247,6 +247,7 @@ Expression* create_int_literal_expression(int value);
 Expression* create_float_literal_expression(float value);
 Expression* create_bool_literal_expression(int value);
 Expression* create_char_literal_expression(char value);
+Expression* create_string_literal_expression(char* value);
 Expression* create_binary_op_expression(Expression *left, int operator, Expression *right);
 Expression* create_unary_op_expression(int operator, Expression *operand);
 Expression* create_func_call_expression(char *func_name, ExpressionList *args);

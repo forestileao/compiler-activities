@@ -10,7 +10,7 @@ int line_number = 1;
 int							return INT;
 float           return FLOAT;
 char						return CHAR;
-string          return STRING;
+string          return STRING_TYPE;
 true						return TRUE;
 false						return FALSE;
 bool            return BOOL;

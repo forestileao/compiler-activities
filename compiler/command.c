@@ -367,6 +367,7 @@ Command* create_return_command(Expression *return_value, int line) {
 }
 
 Expression* create_var_expression(char *name) {
+    printf("Creating variable expression for: %s\n", name);
     Expression *expr = (Expression*) malloc(sizeof(Expression));
     if (expr == NULL) {
         panic("Error: Memory allocation failed for expression\n");
@@ -410,6 +411,20 @@ Expression* create_char_literal_expression(char value) {
 
     expr->type = EXPR_CHAR_LITERAL;
     expr->data.char_value = value;
+
+    return expr;
+}
+
+Expression* create_string_literal_expression(char* value) {
+    printf("Creating string literal expression for: %s\n", value);
+
+    Expression *expr = (Expression*) malloc(sizeof(Expression));
+    if (expr == NULL) {
+        panic("Error: Memory allocation failed for expression\n");
+    }
+
+    expr->type = EXPR_STRING_LITERAL;
+    expr->data.string_value = strdup(value);
 
     return expr;
 }

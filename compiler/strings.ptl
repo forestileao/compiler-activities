@@ -1,0 +1,5 @@
+if true then
+  string pastel;
+  pastel = "test";
+  writeln(pastel);
+end
