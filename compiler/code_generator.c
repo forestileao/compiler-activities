@@ -418,34 +418,8 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
             DataType right_type = get_expression_type(expr->data.binary_op.right, symbol_table);
 
             if (left_type == TYPE_STRING || right_type == TYPE_STRING) {
-                if (left_type != TYPE_STRING || right_type != TYPE_STRING) {
-                    fprintf(stderr, "Error: Cannot compare string with non-string type\n");
-                    return NULL;
-                }
-
-                switch (expr->data.binary_op.operator) {
-                    case EQUAL: {
-                        LLVMValueRef strcmp_func = get_strcmp_function();
-                        LLVMTypeRef strcmp_type = LLVMGlobalGetValueType(strcmp_func);
-                        LLVMValueRef args[] = { left, right };
-                        LLVMValueRef cmp_result = LLVMBuildCall2(builder, strcmp_type, strcmp_func, args, 2, "strcmp");
-
-                        return LLVMBuildICmp(builder, LLVMIntEQ, cmp_result,
-                                           LLVMConstInt(LLVMInt32Type(), 0, 0), "str_eq");
-                    }
-                    case NEQUAL: {
-                        LLVMValueRef strcmp_func = get_strcmp_function();
-                        LLVMTypeRef strcmp_type = LLVMGlobalGetValueType(strcmp_func);
-                        LLVMValueRef args[] = { left, right };
-                        LLVMValueRef cmp_result = LLVMBuildCall2(builder, strcmp_type, strcmp_func, args, 2, "strcmp");
-
-                        return LLVMBuildICmp(builder, LLVMIntNE, cmp_result,
-                                           LLVMConstInt(LLVMInt32Type(), 0, 0), "str_ne");
-                    }
-                    default:
-                        fprintf(stderr, "Error: Unsupported string operation\n");
-                        return NULL;
-                }
+                fprintf(stderr, "Error: Unsupported string operation\n");
+                exit(1);
             }
 
             if (expr->data.binary_op.operator == AND || expr->data.binary_op.operator == OR) {
