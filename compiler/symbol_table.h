@@ -12,6 +12,7 @@ typedef enum {
     TYPE_INT,
     TYPE_FLOAT,
     TYPE_CHAR,
+    TYPE_STRING,
     TYPE_BOOL,
     TYPE_UNKNOWN
 } DataType;
@@ -20,6 +21,7 @@ typedef union {
     int int_val;
     float float_val;
     char char_val;
+    char *string_val;
     int bool_val;
 } Value;
 

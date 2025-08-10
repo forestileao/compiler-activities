@@ -42,6 +42,7 @@ typedef struct Expression {
         EXPR_INT_LITERAL,
         EXPR_FLOAT_LITERAL,
         EXPR_CHAR_LITERAL,
+        EXPR_STRING_LITERAL,
         EXPR_BOOL_LITERAL,
         EXPR_BINARY_OP,
         EXPR_UNARY_OP,
@@ -55,6 +56,7 @@ typedef struct Expression {
         float float_value;
         int bool_value;
         char char_value;
+        char* string_value;
 
         struct {
             struct Expression *left;

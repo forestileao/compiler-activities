@@ -10,6 +10,7 @@ int line_number = 1;
 int							return INT;
 float           return FLOAT;
 char						return CHAR;
+string          return STRING;
 true						return TRUE;
 false						return FALSE;
 bool            return BOOL;
@@ -40,12 +41,12 @@ read						return READ;
 \"([^"]*?)\"					    { yytext[yyleng-1] = '\0'; yylval.sval = strdup(yytext+1); return STRING;}
 [a-zA-Z_]([a-zA-Z0-9_\-])*	{ yylval.sval = strdup(yytext); return ID;}
 
-[0-9]+  {
+-?[0-9]+  {
   yylval.ival = atoi(yytext);
   return NUMBER;
 }
 
-[0-9]+\.[0-9]+  {
+-?[0-9]+\.[0-9]+  {
   yylval.fval = atof(yytext);
   return FLOAT_NUMBER;
 }

@@ -74,6 +74,7 @@ static LLVMTypeRef get_llvm_type(DataType type) {
         case TYPE_INT:   return LLVMInt32Type();
         case TYPE_FLOAT: return LLVMFloatType();
         case TYPE_CHAR:  return LLVMInt8Type();
+        case TYPE_STRING: return LLVMPointerType(LLVMInt8Type(), 0);
         case TYPE_BOOL:  return LLVMInt1Type();
         default:         return LLVMVoidType();
     }
@@ -93,12 +94,85 @@ static void cleanup_value_map() {
 static LLVMBasicBlockRef entry_block = NULL;
 static LLVMValueRef main_function = NULL;
 
-// Helper to create LLVM array types
+static LLVMValueRef create_string_constant(const char *str) {
+    if (!str) return NULL;
+
+    LLVMValueRef str_global = LLVMBuildGlobalStringPtr(builder, str, "str_const");
+    return str_global;
+}
+
+static LLVMValueRef create_string_variable(const char *name, int max_length) {
+    int length = max_length > 0 ? max_length : 256;
+    LLVMTypeRef string_type = LLVMArrayType(LLVMInt8Type(), length);
+
+    if (current_function != main_function) {
+        LLVMValueRef alloca = LLVMBuildAlloca(builder, string_type, name);
+        LLVMSetAlignment(alloca, 1);
+
+        LLVMValueRef zero_char = LLVMConstInt(LLVMInt8Type(), 0, 0);
+        LLVMValueRef indices[] = {
+            LLVMConstInt(LLVMInt32Type(), 0, 0),
+            LLVMConstInt(LLVMInt32Type(), 0, 0)
+        };
+        LLVMValueRef first_char_ptr = LLVMBuildGEP2(builder, string_type, alloca, indices, 2, "first_char");
+        LLVMBuildStore(builder, zero_char, first_char_ptr);
+
+        return alloca;
+    } else {
+        LLVMValueRef global = LLVMAddGlobal(module, string_type, name);
+        LLVMSetInitializer(global, LLVMConstNull(string_type));
+        LLVMSetLinkage(global, LLVMCommonLinkage);
+        LLVMSetAlignment(global, 1);
+        return global;
+    }
+}
+
+static LLVMValueRef get_strlen_function() {
+    LLVMValueRef strlen_func = LLVMGetNamedFunction(module, "strlen");
+    if (strlen_func) {
+        return strlen_func;
+    }
+
+    LLVMTypeRef param_types[] = { LLVMPointerType(LLVMInt8Type(), 0) };
+    LLVMTypeRef strlen_type = LLVMFunctionType(LLVMInt32Type(), param_types, 1, 0);
+    strlen_func = LLVMAddFunction(module, "strlen", strlen_type);
+
+    return strlen_func;
+}
+
+
+static LLVMValueRef get_strcpy_function() {
+    LLVMValueRef strcpy_func = LLVMGetNamedFunction(module, "strcpy");
+    if (strcpy_func) {
+        return strcpy_func;
+    }
+
+    LLVMTypeRef str_ptr_type = LLVMPointerType(LLVMInt8Type(), 0);
+    LLVMTypeRef param_types[] = { str_ptr_type, str_ptr_type };
+    LLVMTypeRef strcpy_type = LLVMFunctionType(str_ptr_type, param_types, 2, 0);
+    strcpy_func = LLVMAddFunction(module, "strcpy", strcpy_type);
+
+    return strcpy_func;
+}
+
+static LLVMValueRef get_strcmp_function() {
+    LLVMValueRef strcmp_func = LLVMGetNamedFunction(module, "strcmp");
+    if (strcmp_func) {
+        return strcmp_func;
+    }
+
+    LLVMTypeRef str_ptr_type = LLVMPointerType(LLVMInt8Type(), 0);
+    LLVMTypeRef param_types[] = { str_ptr_type, str_ptr_type };
+    LLVMTypeRef strcmp_type = LLVMFunctionType(LLVMInt32Type(), param_types, 2, 0);
+    strcmp_func = LLVMAddFunction(module, "strcmp", strcmp_type);
+
+    return strcmp_func;
+}
+
 static LLVMTypeRef get_array_type(Symbol *symbol) {
     LLVMTypeRef element_type = get_llvm_type(symbol->type);
     LLVMTypeRef result = element_type;
 
-    // Build nested array type from innermost to outermost
     for (int i = symbol->num_dimensions - 1; i >= 0; i--) {
         result = LLVMArrayType(result, symbol->array_dimensions[i]);
     }
@@ -228,6 +302,9 @@ LLVMValueRef generate_function_call(const char *func_name, ExpressionList *args,
 LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_table) {
     if (!expr || !builder) return NULL;
     switch (expr->type) {
+        case EXPR_STRING_LITERAL:
+            return create_string_constant(expr->data.string_value);
+
         case EXPR_VAR: {
             LLVMValueRef var_alloca = get_value(expr->data.var_name);
             if (!var_alloca) {
@@ -238,7 +315,6 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
 
             LLVMTypeRef var_type = NULL;
 
-            // Check if it's a global variable or local variable
             if (LLVMIsAGlobalVariable(var_alloca)) {
                 var_type = LLVMGlobalGetValueType(var_alloca);
             } else if (LLVMIsAAllocaInst(var_alloca)) {
@@ -284,6 +360,19 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
             }
 
             Symbol *symbol = lookup_symbol(symbol_table, expr->data.array_access.array_name);
+            if (symbol && symbol->type == TYPE_STRING) {
+                if (symbol->is_array) {
+                    return array_ptr;
+                } else {
+                    LLVMTypeRef string_type = LLVMArrayType(LLVMInt8Type(), 256);
+                    LLVMValueRef indices[] = {
+                        LLVMConstInt(LLVMInt32Type(), 0, 0),
+                        LLVMConstInt(LLVMInt32Type(), 0, 0)
+                    };
+                    return LLVMBuildGEP2(builder, string_type, array_ptr, indices, 2, "str_ptr");
+                }
+            }
+
             if (!symbol || !symbol->is_array) {
                 fprintf(stderr, "Error: '%s' is not an array\n",
                         expr->data.array_access.array_name);
@@ -327,6 +416,37 @@ LLVMValueRef generate_expression_code(Expression *expr, SymbolTable *symbol_tabl
 
             DataType left_type = get_expression_type(expr->data.binary_op.left, symbol_table);
             DataType right_type = get_expression_type(expr->data.binary_op.right, symbol_table);
+
+            if (left_type == TYPE_STRING || right_type == TYPE_STRING) {
+                if (left_type != TYPE_STRING || right_type != TYPE_STRING) {
+                    fprintf(stderr, "Error: Cannot compare string with non-string type\n");
+                    return NULL;
+                }
+
+                switch (expr->data.binary_op.operator) {
+                    case EQUAL: {
+                        LLVMValueRef strcmp_func = get_strcmp_function();
+                        LLVMTypeRef strcmp_type = LLVMGlobalGetValueType(strcmp_func);
+                        LLVMValueRef args[] = { left, right };
+                        LLVMValueRef cmp_result = LLVMBuildCall2(builder, strcmp_type, strcmp_func, args, 2, "strcmp");
+
+                        return LLVMBuildICmp(builder, LLVMIntEQ, cmp_result,
+                                           LLVMConstInt(LLVMInt32Type(), 0, 0), "str_eq");
+                    }
+                    case NEQUAL: {
+                        LLVMValueRef strcmp_func = get_strcmp_function();
+                        LLVMTypeRef strcmp_type = LLVMGlobalGetValueType(strcmp_func);
+                        LLVMValueRef args[] = { left, right };
+                        LLVMValueRef cmp_result = LLVMBuildCall2(builder, strcmp_type, strcmp_func, args, 2, "strcmp");
+
+                        return LLVMBuildICmp(builder, LLVMIntNE, cmp_result,
+                                           LLVMConstInt(LLVMInt32Type(), 0, 0), "str_ne");
+                    }
+                    default:
+                        fprintf(stderr, "Error: Unsupported string operation\n");
+                        return NULL;
+                }
+            }
 
             if (expr->data.binary_op.operator == AND || expr->data.binary_op.operator == OR) {
                 if (LLVMGetTypeKind(LLVMTypeOf(left)) != LLVMIntegerTypeKind ||
@@ -482,6 +602,8 @@ DataType get_expression_type(Expression *expr, SymbolTable *symbol_table) {
             return TYPE_FLOAT;
         case EXPR_CHAR_LITERAL:
             return TYPE_CHAR;
+        case EXPR_STRING_LITERAL:
+            return TYPE_STRING;
         case EXPR_BOOL_LITERAL:
             return TYPE_BOOL;
         case EXPR_ARRAY_ACCESS: {
@@ -549,6 +671,14 @@ DataType llvm_type_to_data_type(LLVMTypeRef llvm_type) {
             return TYPE_INT;
         case LLVMFloatTypeKind:
             return TYPE_FLOAT;
+        case LLVMPointerTypeKind: {
+            LLVMTypeRef element_type = LLVMGetElementType(llvm_type);
+            if (element_type && LLVMGetTypeKind(element_type) == LLVMIntegerTypeKind &&
+                LLVMGetIntTypeWidth(element_type) == 8) {
+                return TYPE_STRING;
+            }
+            return TYPE_UNKNOWN;
+        }
         case LLVMVoidTypeKind:
             return TYPE_UNKNOWN;
         default:
@@ -788,26 +918,26 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
             DataType type = cmd->data.declare_var.data_type;
 
             if (cmd->data.declare_var.array_dims != NULL) {
-                // Array declaration
                 insert_symbol(symbol_table, name, type, cmd->line_number, cmd->data.declare_var.array_dims);
                 Symbol *symbol = lookup_symbol(symbol_table, name);
                 LLVMTypeRef array_type = get_array_type(symbol);
 
                 if (current_function != main_function) {
-                    // Local array
                     LLVMValueRef alloca = LLVMBuildAlloca(builder, array_type, name);
                     LLVMSetAlignment(alloca, 4);
                     add_to_value_map(name, alloca);
                 } else {
-                    // Global array
                     LLVMValueRef global = LLVMAddGlobal(module, array_type, name);
                     LLVMSetInitializer(global, LLVMConstNull(array_type));
                     LLVMSetLinkage(global, LLVMCommonLinkage);
                     LLVMSetAlignment(global, 4);
                     add_to_value_map(name, global);
                 }
+            } else if (type == TYPE_STRING) {
+                LLVMValueRef string_var = create_string_variable(name, 256);
+                insert_symbol(symbol_table, name, type, cmd->line_number, NULL);
+                add_to_value_map(name, string_var);
             } else {
-                // Scalar variable
                 LLVMTypeRef llvm_type = get_llvm_type(type);
 
                 if (current_function != main_function) {
@@ -890,8 +1020,24 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
 
                 LLVMBuildStore(builder, value, gep);
                 free(indices);
-            } else {
-                // Scalar assignment
+            } else if (symbol->type == TYPE_STRING) {
+                LLVMValueRef value = generate_expression_code(cmd->data.assign.value, symbol_table);
+                if (!value) break;
+
+                LLVMValueRef strcpy_func = get_strcpy_function();
+                LLVMTypeRef strcpy_type = LLVMGlobalGetValueType(strcpy_func);
+
+                LLVMTypeRef string_type = LLVMArrayType(LLVMInt8Type(), 256);
+                LLVMValueRef indices[] = {
+                    LLVMConstInt(LLVMInt32Type(), 0, 0),
+                    LLVMConstInt(LLVMInt32Type(), 0, 0)
+                };
+                LLVMValueRef dest_ptr = LLVMBuildGEP2(builder, string_type, var, indices, 2, "dest_ptr");
+
+                LLVMValueRef args[] = { dest_ptr, value };
+                LLVMBuildCall2(builder, strcpy_type, strcpy_func, args, 2, "strcpy_call");
+            }
+            else {
                 DataType expr_type = get_expression_type(cmd->data.assign.value, symbol_table);
                 if (symbol->type != expr_type) {
                     if (symbol->type == TYPE_FLOAT && expr_type == TYPE_INT) {
@@ -998,6 +1144,9 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                     break;
                 case TYPE_BOOL:
                     format = "%9s";
+                    break;
+                case TYPE_STRING:
+                    format = "%255s";
                     break;
                 default:
                     format = "%d";
@@ -1206,6 +1355,9 @@ void generate_code_for_command(Command *cmd, SymbolTable *symbol_table) {
                         break;
                     case TYPE_CHAR:
                         format = cmd->data.write.newline ? "%c\n" : "%c";
+                        break;
+                    case TYPE_STRING:
+                        format = "%s\n";
                         break;
                     case TYPE_BOOL:
                         format = cmd->data.write.newline ? "%s\n" : "%s";

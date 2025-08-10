@@ -40,6 +40,8 @@ int yyerror(char *s);
 %token <cval> CHAR_LITERAL
 %token INT FLOAT CHAR BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
 %token WRITE WRITELN READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
+%token INT FLOAT CHAR STRING BOOL TRUE FALSE DO WHILE REPEAT UNTIL IF THEN ELSE END
+%token WRITE READ EQUAL ASSIGNMENT LT GT GE LE NEQUAL PLUS MINUS TIMES DIVIDE
 %token LPAREN RPAREN SEMICOLON LB RB AND OR NOT
 %token FUNC RETURN ARROW COMMA AMPERSAND LBRACKET RBRACKET
 
@@ -156,6 +158,7 @@ array_dimensions : LBRACKET NUMBER RBRACKET
 type : INT    { $$ = TYPE_INT; }
      | FLOAT  { $$ = TYPE_FLOAT; }
      | CHAR   { $$ = TYPE_CHAR; }
+     | STRING { $$ = TYPE_STRING; }
      | BOOL   { $$ = TYPE_BOOL; }
      ;
 
@@ -301,6 +304,11 @@ var_decl : INT ID SEMICOLON
            add_command(current_block, cmd);
            free($2);
          }
+        | STRING ID SEMICOLON {
+            Command *cmd = create_declare_var_command($2, TYPE_STRING, line_number, NULL);
+            add_command(current_block, cmd);
+            free($2);
+        }
         | BOOL ID SEMICOLON
         {
             Command *cmd = create_declare_var_command($2, TYPE_BOOL, line_number, NULL);

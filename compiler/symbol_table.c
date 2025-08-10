@@ -17,6 +17,7 @@ const char* data_type_to_string(DataType type) {
         case TYPE_INT:    return "int";
         case TYPE_FLOAT:  return "float";
         case TYPE_CHAR:   return "char";
+        case TYPE_STRING: return "string";
         case TYPE_BOOL:   return "bool";
         default:          return "unknown";
     }
@@ -26,6 +27,7 @@ DataType string_to_data_type(const char* type_str) {
     if (strcmp(type_str, "int") == 0)      return TYPE_INT;
     if (strcmp(type_str, "float") == 0)    return TYPE_FLOAT;
     if (strcmp(type_str, "char") == 0)     return TYPE_CHAR;
+    if (strcmp(type_str, "string") == 0)   return TYPE_STRING;
     if (strcmp(type_str, "bool") == 0)     return TYPE_BOOL;
     return TYPE_UNKNOWN;
 }
@@ -256,6 +258,20 @@ void set_char_value(SymbolTable *table, const char *name, char value) {
     }
 }
 
+void set_string_value(SymbolTable *table, const char *name, const char *value) {
+    Symbol *symbol = lookup_symbol(table, name);
+    if (symbol != NULL) {
+        if (symbol->type != TYPE_STRING) {
+            fprintf(stderr, "Type error: Cannot assign string to %s of type %s\n",
+                   name, data_type_to_string(symbol->type));
+            return;
+        }
+        free(symbol->value.string_val);
+        symbol->value.string_val = strdup(value);
+        symbol->is_initialized = 1;
+    }
+}
+
 void set_bool_value(SymbolTable *table, const char *name, int value) {
     Symbol *symbol = lookup_symbol(table, name);
     if (symbol != NULL) {
@@ -320,6 +336,23 @@ char get_char_value(SymbolTable *table, const char *name) {
     return '\0';
 }
 
+char* get_string_value(SymbolTable *table, const char *name) {
+    Symbol *symbol = lookup_symbol(table, name);
+    if (symbol != NULL) {
+        if (symbol->type != TYPE_STRING) {
+            fprintf(stderr, "Type error: %s is not a string (it's a %s)\n",
+                   name, data_type_to_string(symbol->type));
+            return NULL;
+        }
+        if (!symbol->is_initialized) {
+            fprintf(stderr, "Warning: Using uninitialized variable %s\n", name);
+            return NULL;
+        }
+        return symbol->value.string_val;
+    }
+    return NULL;
+}
+
 int get_bool_value(SymbolTable *table, const char *name) {
     Symbol *symbol = lookup_symbol(table, name);
     if (symbol != NULL) {
@@ -343,6 +376,7 @@ int get_type_size(DataType type) {
         case TYPE_FLOAT: return sizeof(float);
         case TYPE_CHAR: return sizeof(char);
         case TYPE_BOOL: return sizeof(int);
+        case TYPE_STRING: return sizeof(char*);
         default: return sizeof(int);
     }
 }
